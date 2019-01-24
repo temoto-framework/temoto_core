@@ -1,0 +1,25 @@
+# Name of the temoto namespace where the status message came from
+string temoto_namespace
+
+# Name of the manager where the status message came from
+string manager_name
+
+# Name of the server where the status message came from
+string server_name
+
+# Id of the resource that this info is about:
+int64 resource_id
+
+# Resource status code
+int64 status_code 
+
+# Additional info about what happened with who.
+string message
+
+# Errorstack
+temoto_core/Error[] error_stack
+
+---
+
+# Errorstack
+temoto_core/Error[] error_stack

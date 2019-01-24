@@ -1,0 +1,18 @@
+# server name
+string server_name
+
+# resource id to be unloaded
+int64 resource_id
+
+---
+
+# return code
+#		0: Success
+#		1: Failure
+#	 -1: Undefined
+int64 code
+
+# return message
+string message
+
+temoto_core/Error[] error_stack
