@@ -1,3 +1,7 @@
+# Ignore action build files
+*.so
+lib/
+
 # Ignore vim temp files
 *.swp
 
