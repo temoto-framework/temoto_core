@@ -23,6 +23,7 @@ enum class Subsystem : int
   RESOURCE_SNOOPER,
   CONTEXT_MANAGER,
   HEALTH_MONITOR,
+  COMPONENT_MANAGER,
   SENSOR_MANAGER,
   ALGORITHM_MANAGER,
   ROBOT_MANAGER,
@@ -100,6 +101,9 @@ enum class Code : int
   ROBOT_EXEC_FAIL,   // Unable to execute the plan.
   ROBOT_CONFIG_FAIL,  // Error when processing robot config.
   PLANNING_GROUP_NOT_FOUND,    // Planning group(s) not found.
+
+  // Sensor manager
+  COMPONENT_NOT_FOUND,  // The requested sensor was not found from local and remote managers.
 
   // Sensor manager
   SENSOR_NOT_FOUND,  // The requested sensor was not found from local and remote managers.
