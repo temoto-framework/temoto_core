@@ -1,0 +1,7 @@
+<task action="open">
+    <interface id="0" type="asynchronous">
+        <in>
+            <what word="terminal" />
+        </in>
+    </interface>
+</task>
