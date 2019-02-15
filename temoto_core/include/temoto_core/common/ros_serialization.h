@@ -14,7 +14,7 @@ namespace temoto_core
  * @param payload 
  * @return std::vector<uint8_t> 
  */
-template <class PayloadType payload>
+template <class PayloadType>
 std::vector<uint8_t> serializeROSmsg(const PayloadType& payload)
 {
   // Serialize the payload
@@ -41,7 +41,7 @@ std::vector<uint8_t> serializeROSmsg(const PayloadType& payload)
  * @param payload 
  * @return std::vector<uint8_t> 
  */
-template <class PayloadType payload>
+template <class PayloadType>
 PayloadType deserializeROSmsg(std::vector<uint8_t> payload_in)
 {
   uint32_t payload_size = payload_in.size();
