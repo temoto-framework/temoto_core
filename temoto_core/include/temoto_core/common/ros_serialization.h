@@ -55,6 +55,7 @@ PayloadType deserializeROSmsg(std::vector<uint8_t> payload_in)
 
   // Convert the serialized payload to msg
   ser::IStream stream(buffer.get(), payload_size);
+  PayloadType payload;
   ser::deserialize(stream, payload);
   return payload;
 }
