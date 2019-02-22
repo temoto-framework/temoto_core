@@ -62,22 +62,17 @@ void startInterface_0()
 
 // --------------------------------< USER CODE >-------------------------------
 
-    std::cout << "  TaskIndex: Indexing the tasks '" << what_0_word_in << "'\n";
+    TEMOTO_INFO_STREAM("TaskIndex: Indexing the '" << what_0_word_in << "'\n");
 
     // Create a service message
     temoto_nlp::IndexTasks index_tasks_msg;
-    index_tasks_msg.directory = ros::package::getPath(ROS_PACKAGE_NAME) + "/..";
+    index_tasks_msg.directory = "";
+    index_tasks_msg.index_all = true;
 
     // Publish
     index_tasks_publisher_.publish(index_tasks_msg);
 
 // --------------------------------</ USER CODE >-------------------------------
-}
-
-std::string getStatus()
-{
-    std::string str = "healthy";
-    return str;
 }
 
 std::vector<temoto_nlp::Subject> getSolution()
