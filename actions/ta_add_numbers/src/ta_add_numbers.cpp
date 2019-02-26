@@ -69,9 +69,9 @@ void startInterface_0()
     numeric_0_data_0_out = numeric_0_data_0_in + numeric_1_data_0_in;
     numeric_0_word_out = numeric_0_word_in;
 
-    TASK_INFO("TaAddNumbers MOD_5: %f %s + %f %s = %f %s", numeric_0_data_0_in, numeric_0_word_in.c_str()
-                                              , numeric_1_data_0_in, numeric_1_word_in.c_str()
-                                              , numeric_0_data_0_out, numeric_0_word_out.c_str());
+    TASK_INFO(" %f %s + %f %s = %f %s", numeric_0_data_0_in, numeric_0_word_in.c_str()
+                                      , numeric_1_data_0_in, numeric_1_word_in.c_str()
+                                      , numeric_0_data_0_out, numeric_0_word_out.c_str());
 
 // -------------------------------</ USER CODE >-------------------------------
 
