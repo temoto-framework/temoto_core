@@ -5,6 +5,7 @@
 #include <ros/serialization.h>
 #include "temoto_core/common/base_subsystem.h"
 #include "temoto_core/common/temoto_log_macros.h"
+#include "temoto_core/common/ros_serialization.h"
 #include "temoto_core/ConfigSync.h"
 #include <string>
 #include <sstream>
@@ -111,19 +112,7 @@ public:
       msg.action = sync_action;
 
       // Serialize the payload
-      uint32_t payload_size = ros::serialization::serializationLength(payload);
-      boost::shared_array<uint8_t> buffer(new uint8_t[payload_size]);
-      ser::OStream stream(buffer.get(), payload_size);
-      ser::serialize(stream, payload);
-
-      // Create a byte array
-      std::vector<uint8_t> payload_byte_array;
-
-      // Fill out the byte array
-      for (uint32_t i=0; i<payload_size; i++)
-      {
-        payload_byte_array.push_back(buffer.get()[i]);
-      }
+      std::vector<uint8_t> payload_byte_array = serializeROSmsg(payload);
 
       msg.payload = payload_byte_array;
       sync_pub_.publish(msg);
@@ -152,20 +141,10 @@ private:
       PayloadType payload;
 
       // Deserialize the payload if the action type is ADVERTISE
+      
       if (msg.action == sync_action::ADVERTISE_CONFIG)
       {
-        uint32_t payload_size = msg.payload.size();
-        boost::shared_array<uint8_t> buffer(new uint8_t[payload_size]);
-
-        // Fill buffer with the serialized payload
-        for (uint32_t i=0; i<payload_size; i++)
-        {
-          (buffer.get())[i] = msg.payload[i];
-        }
-
-        // Convert the serialized payload to msg
-        ser::IStream stream(buffer.get(), payload_size);
-        ser::deserialize(stream, payload);
+        payload = deserializeROSmsg<PayloadType>(msg.payload);
       }
 
       (owner_->*sync_cb_)(msg, payload);

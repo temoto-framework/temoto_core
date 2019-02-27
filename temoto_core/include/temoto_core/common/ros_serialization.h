@@ -1,4 +1,6 @@
 
+#ifndef TEMOTO_ROS_SERIALIZATION
+#define TEMOTO_ROS_SERIALIZATION
 #include <ros/serialization.h>
 #include <vector>
 #include <iostream>
@@ -60,3 +62,4 @@ PayloadType deserializeROSmsg(std::vector<uint8_t> payload_in)
   return payload;
 }
 }
+#endif
