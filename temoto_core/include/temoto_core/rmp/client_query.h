@@ -69,7 +69,7 @@ public:
     return msg_;
   }
 
-  const temoto_id::ID getExternalId() const
+  temoto_id::ID getExternalId() const
   {
     return msg_.response.rmp.resource_id;
   }
