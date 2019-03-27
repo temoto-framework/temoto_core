@@ -47,12 +47,12 @@ public:
   }
 
 
-  std::vector<StringPair> getInputTopics() const
+  const std::vector<StringPair>& getInputTopics() const
   {
     return input_topics_;
   }
 
-  std::vector<StringPair> getOutputTopics() const
+  const std::vector<StringPair>& getOutputTopics() const
   {
     return output_topics_;
   }
