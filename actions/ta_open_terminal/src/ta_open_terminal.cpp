@@ -82,7 +82,8 @@ private:
 
     std::string temoto_namespace = temoto_core::common::getTemotoNamespace();
     ComponentTopicsReq requested_topics;
-    requested_topics.addOutputTopic("chatter_data", "/" + temoto_namespace + "/human_chatter");
+    // requested_topics.addOutputTopic("chatter_data", "/" + temoto_namespace + "/human_chatter");
+    requested_topics.addOutputTopic("chatter_data", "/human_chatter");
 
     TEMOTO_INFO("Trying to open the human chatter terminal");
 
