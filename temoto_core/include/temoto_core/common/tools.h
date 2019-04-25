@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <string>
 #include <stdlib.h>  // for getenv
+#include <boost/algorithm/string.hpp> // boost replace_all and such
 
 namespace temoto_core
 {
@@ -77,6 +78,32 @@ inline std::string getAbsolutePath(const std::string& path_in)
     }
   }
   return abs_path;
+}
+
+inline std::string toSnakeCase(const std::string& name_in)
+{
+  /*
+   * Remove whitespaces and change to lower case
+   */
+  std::string name = name_in;
+  boost::algorithm::to_lower(name);
+  boost::replace_all(name, " ", "_");
+
+
+  /*
+   * Remove repetitive "_" characters
+   */
+  std::string before = name;
+  std::string after = name;
+  do
+  {
+    before = after;
+    boost::replace_all(after, "__", "_");
+  }
+  while (before != after);
+  name = after;
+
+  return name;
 }
 
 } // common namespace
