@@ -89,32 +89,21 @@ inline std::string toSnakeCase(const std::string& name_in)
   boost::algorithm::to_lower(name);
   boost::replace_all(name, " ", "_");
 
-  /*
-   * Remove all non alphanumeric elements except "_"
-   */
-  std::string name_alnum;
-  for(char& c : name)
-  {
-    if (std::isalnum(c) || std::string(1, c)=="_")
-    {
-      name_alnum += c;
-    }
-  }
 
   /*
    * Remove repetitive "_" characters
    */
-  std::string before = name_alnum;
-  std::string after = name_alnum;
+  std::string before = name;
+  std::string after = name;
   do
   {
     before = after;
     boost::replace_all(after, "__", "_");
   }
   while (before != after);
-  name_alnum = after;
+  name = after;
 
-  return name_alnum;
+  return name;
 }
 
 } // common namespace
