@@ -20,6 +20,10 @@ add_message_files(FILES
 
   # Configuration Synchronizer
   ConfigSync.msg
+
+  # UMRF
+  SemanticFrameYaml.msg
+  SemanticFrameTreeYaml.msg
 )
 
 add_service_files(
