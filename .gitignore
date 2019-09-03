@@ -14,3 +14,6 @@ lib/
 # Ignore docs
 */doc/html
 */doc/manifest.yaml
+
+# Ignore deprecated actions
+actions/

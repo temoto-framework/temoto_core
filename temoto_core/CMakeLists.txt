@@ -38,7 +38,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES temoto_core
+  LIBRARIES temoto_core_components
   CATKIN_DEPENDS std_msgs diagnostic_msgs message_generation
 #  DEPENDS system_lib
 )

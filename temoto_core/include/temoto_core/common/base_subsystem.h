@@ -43,13 +43,13 @@ public:
   {
   }
 
-protected:
   std::string subsystem_name_;
   error::Subsystem subsystem_code_;
   std::string class_name_;
   std::string log_group_;
   error::ErrorHandler error_handler_;
 
+protected:
   /**
    * @brief This function is used when the BaseSubsystem cannot be initialized
    * during the construction phase
