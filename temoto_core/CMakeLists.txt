@@ -4,7 +4,6 @@ add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED
   roscpp
-  genmsg
   std_msgs
   diagnostic_msgs
   message_generation
@@ -35,11 +34,10 @@ generate_messages(
   diagnostic_msgs
 )
 
-
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES temoto_core_components
-  CATKIN_DEPENDS std_msgs diagnostic_msgs message_generation
+  CATKIN_DEPENDS roscpp std_msgs diagnostic_msgs message_generation
 #  DEPENDS system_lib
 )
 
@@ -57,3 +55,11 @@ add_library(temoto_core_components
 )
 add_dependencies(temoto_core_components ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(temoto_core_components ${catkin_LIBRARIES})
+
+install(TARGETS temoto_core_components
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+)
+
+install(DIRECTORY include/${PROJECT_NAME}/
+        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
