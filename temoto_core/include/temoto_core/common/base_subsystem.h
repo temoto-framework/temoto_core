@@ -13,25 +13,23 @@ public:
 
   // Constructor without log group
   BaseSubsystem(std::string subsystem_name, error::Subsystem subsystem_code, std::string class_name)
-    : BaseSubsystem(subsystem_name, subsystem_code, class_name, subsystem_name)
-  {
-  }
+  : BaseSubsystem(subsystem_name, subsystem_code, class_name, subsystem_name)
+  {}
 
   // Constructor with all arguments
   BaseSubsystem(std::string subsystem_name, error::Subsystem subsystem_code, std::string class_name,
                 std::string log_group)
-    : subsystem_name_(subsystem_name)
-    , subsystem_code_(subsystem_code)
-    , class_name_(class_name)
-    , log_group_(log_group)
-    , error_handler_(error::ErrorHandler(subsystem_code, log_group))
-  {
-  }
+  : subsystem_name_(subsystem_name)
+  , subsystem_code_(subsystem_code)
+  , class_name_(class_name)
+  , log_group_(log_group)
+  , error_handler_(error::ErrorHandler(subsystem_code, log_group))
+  {}
 
   // Copy constructor
-  BaseSubsystem(const BaseSubsystem& b) : BaseSubsystem(b, b.class_name_)
-  {
-  }
+  BaseSubsystem(const BaseSubsystem& b) 
+  : BaseSubsystem(b, b.class_name_)
+  {}
 
   // Copy constructor with class name
   BaseSubsystem(const BaseSubsystem& b, const std::string& class_name)
@@ -40,8 +38,7 @@ public:
     , class_name_(class_name)
     , log_group_(b.log_group_)
     , error_handler_(error::ErrorHandler(b.subsystem_code_, b.log_group_))
-  {
-  }
+  {}
 
   std::string subsystem_name_;
   error::Subsystem subsystem_code_;
