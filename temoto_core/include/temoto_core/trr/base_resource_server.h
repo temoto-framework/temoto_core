@@ -4,7 +4,7 @@
 #include "temoto_core/temoto_error/temoto_error.h"
 #include "temoto_core/common/temoto_id.h"
 #include "temoto_core/common/base_subsystem.h"
-#include "temoto_core/rmp/resource_manager.h"
+#include "temoto_core/trr/resource_registrar.h"
 #include "temoto_core/UnloadResource.h"
 #include <string>
 #include <vector>
@@ -12,12 +12,12 @@
 
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
-//Forward declatation of ResourceManager
+//Forward declatation of ResourceRegistrar
 template<class Owner>
-class ResourceManager;
+class ResourceRegistrar;
 
 template<class Owner>
 class BaseResourceServer : public BaseSubsystem
@@ -26,13 +26,13 @@ class BaseResourceServer : public BaseSubsystem
 //		BaseResourceServer()
 //		{
 //			name_ = "default_server_name";
-//			resource_manager_ = NULL;
+//			resource_registrar_ = NULL;
 //		}
 
-		BaseResourceServer(const std::string name, ResourceManager<Owner>& resource_manager) :
-      BaseSubsystem (resource_manager),
+		BaseResourceServer(const std::string name, ResourceRegistrar<Owner>& resource_registrar) :
+      BaseSubsystem (resource_registrar),
 			name_(name),
-			resource_manager_(resource_manager)
+			resource_registrar_(resource_registrar)
 		{
 		}
 		virtual ~BaseResourceServer()
@@ -61,22 +61,22 @@ class BaseResourceServer : public BaseSubsystem
 
 		void activateServer()
 		{
-			resource_manager_.setActiveServer(this);
+			resource_registrar_.setActiveServer(this);
 		};
 
 		void deactivateServer()
 		{
-			resource_manager_.setActiveServer(NULL);
+			resource_registrar_.setActiveServer(NULL);
 		};
 
-		ResourceManager<Owner>& resource_manager_;
+		ResourceRegistrar<Owner>& resource_registrar_;
 		std::string name_;
 
 
 	private:
 };
 
-} // rmp namespace
+} // trr namespace
 } // temoto_core namespace
 
 #endif

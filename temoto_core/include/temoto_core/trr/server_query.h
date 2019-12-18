@@ -12,7 +12,7 @@
 
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
 // class for storing resource requests and hold their bingdings to clients
@@ -27,7 +27,7 @@ public:
     class_name_ = __func__;
 
     msg_.request = req;  // response part is set after executing owners callback
-    msg_.response.rmp.resource_id = internal_id;
+    msg_.response.trr.resource_id = internal_id;
   }
 
   void addExternalResource(temoto_id::ID external_resource_id, const std::string& status_topic)
@@ -43,7 +43,7 @@ public:
     return external_resources_.size();
   }
 
-  // Check if external connection with given resource_id is attached to this query.rmp.resource_id = found_query_it->get
+  // Check if external connection with given resource_id is attached to this query.trr.resource_id = found_query_it->get
   bool hasExternalResource(temoto_id::ID external_resource_id) const
   {
     return external_resources_.find(external_resource_id) != external_resources_.end();
@@ -90,7 +90,7 @@ public:
 
   temoto_id::ID getInternalId() const
   {
-    return msg_.response.rmp.resource_id;
+    return msg_.response.trr.resource_id;
   }
 
   const std::set<temoto_id::ID>& getLinkedResources() const
@@ -111,7 +111,7 @@ public:
   void setFailed(const error::ErrorStack& error_stack)
   {
     failed_ = true;
-    msg_.response.rmp.error_stack += error_stack;
+    msg_.response.trr.error_stack += error_stack;
   }
 
 
@@ -133,7 +133,7 @@ private:
                         /// herein.
 };
 
-} // rmp namespace
+} // trr namespace
 } // temoto_core namespace
 
 #endif

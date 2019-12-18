@@ -9,7 +9,7 @@
 
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
 enum class FailureBehavior : int
@@ -28,7 +28,7 @@ public:
   ClientQuery(const ServiceMsgType& msg, Owner* owner)
     : BaseSubsystem(*owner, __func__), msg_(msg), owner_(owner), failed_(false)
   {
-    this->log_group_ = "rmp." + this->log_group_;
+    this->log_group_ = "trr." + this->log_group_;
   }
 
   void addInternalResource(temoto_id::ID resource_id, FailureBehavior failure_behavior)
@@ -71,7 +71,7 @@ public:
 
   temoto_id::ID getExternalId() const
   {
-    return msg_.response.rmp.resource_id;
+    return msg_.response.trr.resource_id;
   }
 
   std::string toString() const
@@ -117,7 +117,7 @@ private:
                         /// herein.
 };
 
-} // rmp namespace
+} // trr namespace
 } // temoto_core namespace
 
 #endif

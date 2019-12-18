@@ -5,14 +5,14 @@
 #include "ros/callback_queue.h"
 #include "temoto_core/common/temoto_id.h"
 #include "temoto_core/common/tools.h"
-#include "temoto_core/rmp/base_resource_server.h"
-#include "temoto_core/rmp/server_query.h"
-#include "temoto_core/rmp/resource_manager_services.h"
+#include "temoto_core/trr/base_resource_server.h"
+#include "temoto_core/trr/server_query.h"
+#include "temoto_core/trr/resource_registrar_services.h"
 #include <mutex>
 
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
 template <class ServiceType, class Owner>
@@ -25,8 +25,8 @@ public:
                                           typename ServiceType::Response&);
 
   ResourceServer(std::string name, LoadCbFuncType load_cb, UnloadCbFuncType unload_cb, Owner* owner,
-                 ResourceManager<Owner>& resource_manager)
-    : BaseResourceServer<Owner>(name, resource_manager)
+                 ResourceRegistrar<Owner>& resource_registrar)
+    : BaseResourceServer<Owner>(name, resource_registrar)
     , load_callback_(load_cb)
     , unload_callback_(unload_cb)
     , owner_(owner)
@@ -35,7 +35,7 @@ public:
   {
     this->class_name_ = __func__;
 
-    std::string rm_name = this->resource_manager_.getName();
+    std::string rm_name = this->resource_registrar_.getName();
     std::string server_srv_name = rm_name + "/" + this->name_;
 
     ros::AdvertiseServiceOptions load_service_opts =
@@ -97,18 +97,18 @@ public:
 
   bool wrappedLoadCallback(typename ServiceType::Request& req, typename ServiceType::Response& res)
   {
-    TEMOTO_DEBUG("Got query with status_topic: '%s'.", req.rmp.status_topic.c_str());
+    TEMOTO_DEBUG("Got query with status_topic: '%s'.", req.trr.status_topic.c_str());
 
     if (!owner_)
     {
-      res.rmp.code = status_codes::FAILED;
-      res.rmp.error_stack =
+      res.trr.code = status_codes::FAILED;
+      res.trr.error_stack =
           CREATE_ERROR(error::Code::RMP_FAIL, "ResourceServer Owner is NULL. Query aborted.");
       return true;
     }
 
     // generate new external id for the resource
-    temoto_id::ID ext_resource_id = this->resource_manager_.generateID();
+    temoto_id::ID ext_resource_id = this->resource_registrar_.generateID();
     TEMOTO_DEBUG("Generated external id: '%d'.", ext_resource_id);
 
     // lock the queries
@@ -124,22 +124,22 @@ public:
     {
       // generate new internal id, and give it to owners callback.
       // with this id, owner can send status messages later when necessary
-      temoto_id::ID int_resource_id = this->resource_manager_.generateID();
-      res.rmp.resource_id = int_resource_id;
+      temoto_id::ID int_resource_id = this->resource_registrar_.generateID();
+      res.trr.resource_id = int_resource_id;
       TEMOTO_DEBUG("New query, server generated new internal id: '%d'.", int_resource_id);
 
       // equal message not found from queries_, add new query
       try
       {
         queries_.emplace_back(req, int_resource_id, *owner_);
-        queries_.back().addExternalResource(ext_resource_id, req.rmp.status_topic);
+        queries_.back().addExternalResource(ext_resource_id, req.trr.status_topic);
       }
       catch(error::ErrorStack& error_stack)
       {
         queries_.pop_back(); //remove the failed query
         queries_mutex_.unlock();
-        res.rmp.code = status_codes::FAILED;
-        res.rmp.error_stack = FORWARD_ERROR(error_stack);
+        res.trr.code = status_codes::FAILED;
+        res.trr.error_stack = FORWARD_ERROR(error_stack);
         return true;
       }
 
@@ -156,14 +156,14 @@ public:
         queries_.pop_back(); //remove the failed query
         queries_mutex_.unlock();
         active_server_mutex_.unlock();
-        res.rmp.code = status_codes::FAILED;
-        res.rmp.error_stack = FORWARD_ERROR(error_stack);
+        res.trr.code = status_codes::FAILED;
+        res.trr.error_stack = FORWARD_ERROR(error_stack);
         return true;
       }
       queries_mutex_.unlock();
 
       // call owner's registered callback and release the lock during the callback so that owner is
-      // able to use rmp inside the callback
+      // able to use trr inside the callback
       try
       {
         (owner_->*load_callback_)(req, res);
@@ -177,7 +177,7 @@ public:
           auto q_it = getQueryByExternalId(ext_resource_id);
           if(q_it->failed_)
           {
-            res.rmp.error_stack += q_it->getMsg().response.rmp.error_stack;
+            res.trr.error_stack += q_it->getMsg().response.trr.error_stack;
           }
           queries_.erase(q_it);
           queries_mutex_.unlock();
@@ -191,8 +191,8 @@ public:
 
         this->deactivateServer();
         active_server_mutex_.unlock();
-        res.rmp.code = status_codes::FAILED;
-        res.rmp.error_stack = FORWARD_ERROR(error_stack);
+        res.trr.code = status_codes::FAILED;
+        res.trr.error_stack = FORWARD_ERROR(error_stack);
         return true;
       }
       catch(...)
@@ -205,7 +205,7 @@ public:
           auto q_it = getQueryByExternalId(ext_resource_id);
           if(q_it->failed_)
           {
-            res.rmp.error_stack += q_it->getMsg().response.rmp.error_stack;
+            res.trr.error_stack += q_it->getMsg().response.trr.error_stack;
           }
           queries_.erase(q_it);
           queries_mutex_.unlock();
@@ -218,8 +218,8 @@ public:
         }
         this->deactivateServer();
         active_server_mutex_.unlock();
-        res.rmp.code = status_codes::FAILED;
-        res.rmp.error_stack =
+        res.trr.code = status_codes::FAILED;
+        res.trr.error_stack =
             CREATE_ERROR(error::Code::RMP_FAIL, "Unexpected error was thrown from "
                                                            "owner's load callback.");
         return true;
@@ -240,7 +240,7 @@ public:
         if (q_it != queries_.end())
         {
           // First, make sure the internal_resource_id for that query is not changed.
-          res.rmp.resource_id = int_resource_id;
+          res.trr.resource_id = int_resource_id;
 
           // check if the query has not been marked as failed while we were dealing with the owner's callback
           // if it failed, remove the query. 
@@ -248,10 +248,10 @@ public:
           {
             // TODO Potentially some resources were sucessfully loaded, SEND UNLOAD REQUEST TO ALL
             // LINKED CLIENTS
-            res.rmp.error_stack += q_it->getMsg().response.rmp.error_stack;
+            res.trr.error_stack += q_it->getMsg().response.trr.error_stack;
             queries_.erase(q_it);
             queries_mutex_.unlock();
-            res.rmp.code = status_codes::FAILED;
+            res.trr.code = status_codes::FAILED;
             return true;
           }
 
@@ -259,24 +259,24 @@ public:
           q_it->setMsgResponse(res);
 
           // prepare the response for the client
-          res.rmp.resource_id = ext_resource_id;
+          res.trr.resource_id = ext_resource_id;
 
-          //res.rmp.code = status_codes::OK;
-          //res.rmp.message = "New resource sucessfully loaded.";
+          //res.trr.code = status_codes::OK;
+          //res.trr.message = "New resource sucessfully loaded.";
         }
         else
         {
           queries_mutex_.unlock();
-          res.rmp.code = status_codes::FAILED;
-          res.rmp.error_stack = CREATE_ERROR(error::Code::RMP_FAIL, "Query got missing during owners callback, oh well...");
+          res.trr.code = status_codes::FAILED;
+          res.trr.error_stack = CREATE_ERROR(error::Code::RMP_FAIL, "Query got missing during owners callback, oh well...");
           return true;
         }
       }
       catch(error::ErrorStack& error_stack)
       {
         queries_mutex_.unlock();
-        res.rmp.code = status_codes::FAILED;
-        res.rmp.error_stack = FORWARD_ERROR(error_stack);
+        res.trr.code = status_codes::FAILED;
+        res.trr.error_stack = FORWARD_ERROR(error_stack);
         return true;
       }
 
@@ -288,17 +288,17 @@ public:
         // found equal request, simply reqister this in the query
         // and respond with previous data and a unique resoure_id.
         TEMOTO_DEBUG("Existing query, linking to the found query.");
-        queries_.back().addExternalResource(ext_resource_id, req.rmp.status_topic);
+        queries_.back().addExternalResource(ext_resource_id, req.trr.status_topic);
         res = found_query->getMsg().response;
-        res.rmp.resource_id = ext_resource_id;
-        //res.rmp.code = status_codes::OK;
-        //res.rmp.message = "Sucessfully sharing existing resource.";
+        res.trr.resource_id = ext_resource_id;
+        //res.trr.code = status_codes::OK;
+        //res.trr.message = "Sucessfully sharing existing resource.";
       }
       catch(error::ErrorStack& error_stack)
       {
         queries_mutex_.unlock();
-        res.rmp.code = status_codes::FAILED;
-        res.rmp.error_stack = FORWARD_ERROR(error_stack);
+        res.trr.code = status_codes::FAILED;
+        res.trr.error_stack = FORWARD_ERROR(error_stack);
         return true;
       }
     }
@@ -353,7 +353,7 @@ public:
         {
           try
           {
-            this->resource_manager_.unloadClientResource(set_el);
+            this->resource_registrar_.unloadClientResource(set_el);
           }
           catch (error::ErrorStack& es)
           {
@@ -502,7 +502,7 @@ private:
   std::mutex active_server_mutex_;
 };
 
-} // rmp namespace
+} // trr namespace
 } // temoto_core namespace
 
 #endif

@@ -3,25 +3,25 @@
 
 #include "temoto_core/common/temoto_id.h"
 #include "temoto_core/common/base_subsystem.h"
-#include "temoto_core/rmp/resource_manager.h"
-#include "temoto_core/rmp/client_query.h"
+#include "temoto_core/trr/resource_registrar.h"
+#include "temoto_core/trr/client_query.h"
 #include <string>
 
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
-//Forward declatation of ResourceManager
+//Forward declatation of ResourceRegistrar
 template<class Owner>
-class ResourceManager;
+class ResourceRegistrar;
 
 template <class Owner>
 class BaseResourceClient : public BaseSubsystem
 {
 	public:
-    BaseResourceClient(ResourceManager<Owner>& resource_manager)
-      : BaseSubsystem(resource_manager), resource_manager_(resource_manager)
+    BaseResourceClient(ResourceRegistrar<Owner>& resource_registrar)
+      : BaseSubsystem(resource_registrar), resource_registrar_(resource_registrar)
     {
     }
         
@@ -42,7 +42,7 @@ class BaseResourceClient : public BaseSubsystem
     virtual std::string toString() = 0;
 
   protected:
-		ResourceManager<Owner>& resource_manager_;
+		ResourceRegistrar<Owner>& resource_registrar_;
         
 	private:
 
@@ -51,7 +51,7 @@ class BaseResourceClient : public BaseSubsystem
 template <class Owner>
 using BaseResourceClientPtr = std::shared_ptr<BaseResourceClient<Owner>>;
 
-} // rmp namespace
+} // trr namespace
 } // temoto_core namespace
 
 #endif

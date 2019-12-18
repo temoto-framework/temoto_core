@@ -1,11 +1,11 @@
-#ifndef TEMOTO_CORE__RESOURCE_MANAGER_H
-#define TEMOTO_CORE__RESOURCE_MANAGER_H
+#ifndef TEMOTO_CORE__RESOURCE_REGISTRAR_H
+#define TEMOTO_CORE__RESOURCE_REGISTRAR_H
 
 #include "ros/callback_queue.h"
 #include "temoto_core/common/base_subsystem.h"
-#include "temoto_core/rmp/resource_server.h"
-#include "temoto_core/rmp/resource_client.h"
-#include "temoto_core/rmp/resource_manager_services.h"
+#include "temoto_core/trr/resource_server.h"
+#include "temoto_core/trr/resource_client.h"
+#include "temoto_core/trr/resource_registrar_services.h"
 #include <string>
 #include <memory>  // dynamic_pointer_cast
 #include <mutex>
@@ -13,16 +13,16 @@
 // Resource Management Protocol (RMP) for temoto 2
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
 template <class Owner>
-class ResourceManager : public BaseSubsystem
+class ResourceRegistrar : public BaseSubsystem
 {
   friend class BaseResourceServer<Owner>;
 
 public:
-  ResourceManager(std::string name, Owner* owner)
+  ResourceRegistrar(std::string name, Owner* owner)
     : BaseSubsystem(*owner)
     , owner_(owner)
     , name_(name)
@@ -32,13 +32,13 @@ public:
   {
     subsystem_name_ = name;
     this->class_name_ = __func__;
-    this->log_group_ = "rmp." + this->log_group_;
+    this->log_group_ = "trr." + this->log_group_;
 
     // set up status callback with separately threaded queue
     std::string status_srv_name = name_ + "/status";
     ros::AdvertiseServiceOptions status_service_opts =
         ros::AdvertiseServiceOptions::create<temoto_core::ResourceStatus>(
-            status_srv_name, boost::bind(&ResourceManager<Owner>::statusCallback, this, _1, _2),
+            status_srv_name, boost::bind(&ResourceRegistrar<Owner>::statusCallback, this, _1, _2),
             ros::VoidPtr(), &this->status_cb_queue_);
     status_server_ = nh_.advertiseService(status_service_opts);
 
@@ -46,7 +46,7 @@ public:
     std::string unload_srv_name = name_ + "/unload";
     ros::AdvertiseServiceOptions unload_service_opts =
         ros::AdvertiseServiceOptions::create<temoto_core::UnloadResource>(
-            unload_srv_name, boost::bind(&ResourceManager<Owner>::unloadCallback, this, _1, _2),
+            unload_srv_name, boost::bind(&ResourceRegistrar<Owner>::unloadCallback, this, _1, _2),
             ros::VoidPtr(), &this->unload_cb_queue_);
     unload_server_ = nh_.advertiseService(unload_service_opts);
 
@@ -55,7 +55,7 @@ public:
     unload_spinner_.start();
   }
 
-  ~ResourceManager()
+  ~ResourceRegistrar()
   {
     unloadClients();
     unload_spinner_.stop();
@@ -106,8 +106,8 @@ public:
   }
 
   template <class ServiceType>
-  void call(std::string resource_manager_name, std::string server_name, ServiceType& msg,
-            rmp::FailureBehavior failure_behavior = rmp::FailureBehavior::NONE,
+  void call(std::string resource_registrar_name, std::string server_name, ServiceType& msg,
+            trr::FailureBehavior failure_behavior = trr::FailureBehavior::NONE,
             std::string temoto_namespace = ::temoto_core::common::getTemotoNamespace())
   {
     using ClientType = ResourceClient<ServiceType, Owner>;
@@ -119,7 +119,7 @@ public:
     waitForLock(clients_mutex_);
 
     // check if this client already exists
-    std::string client_name = '/'+temoto_namespace + "/" + resource_manager_name + "/" + server_name;
+    std::string client_name = '/'+temoto_namespace + "/" + resource_registrar_name + "/" + server_name;
     typename std::vector<BaseClientPtr>::iterator client_it =
         std::find_if(clients_.begin(), clients_.end(),
                      [&](const BaseClientPtr& c) -> bool { return c->getName() == client_name; });
@@ -127,7 +127,7 @@ public:
     {
       TEMOTO_DEBUG("Creating new resource client '%s'.", client_name.c_str());
 
-      client_ptr = std::make_shared<ClientType>(temoto_namespace, resource_manager_name,
+      client_ptr = std::make_shared<ClientType>(temoto_namespace, resource_registrar_name,
                                                 server_name, owner_, *this);
       // Push to clients and convert to BaseResourceClient type
       clients_.push_back(client_ptr);
@@ -145,7 +145,7 @@ public:
     }
 
     // generate new id for owner as the call was not initiated from any servers callback
-    msg.response.rmp.resource_id = generateID();
+    msg.response.trr.resource_id = generateID();
     
     try
     {
@@ -157,7 +157,7 @@ public:
         // if call was sucessful and the call was initiated from server callback,
         // link the client to the server
         TEMOTO_DEBUG("Linking internal client.");
-        active_server_->linkInternalResource(msg.response.rmp.resource_id);
+        active_server_->linkInternalResource(msg.response.trr.resource_id);
       }
     }
     catch (error::ErrorStack& error_stack)
@@ -258,7 +258,7 @@ public:
         continue;
       }
 
-      if (srv.request.status_code == rmp::status_codes::FAILED)
+      if (srv.request.status_code == trr::status_codes::FAILED)
       {
         // if this status message is about resource failure, mark the corresponding query as failed.
         server->setFailedFlag(srv.request.resource_id, srv.request.error_stack);
@@ -433,12 +433,12 @@ public:
             // Take action based on resource failure behavior
             //switch (int_resource.second)
             //{
-            //  case rmp::FailureBehavior::UNLOAD:
+            //  case trr::FailureBehavior::UNLOAD:
             //    TEMOTO_WARN("UNLOADING LINKED RESOURCE %d", int_resource.first);
             //    unlinkResource(int_resource.first);
 
             //    break;
-            //  case rmp::FailureBehavior::RELOAD:
+            //  case trr::FailureBehavior::RELOAD:
             //    TEMOTO_WARN("UNLOADING LINKED RESOURCE AND RELOADING %d", int_resource.first);
             //    unlinkResource(int_resource.first);
             //    // now try to reload.
@@ -559,7 +559,7 @@ private:
   std::mutex active_server_mutex_;
 };
 
-} // namespace rmp
+} // namespace trr
 } // namespace temoto_core
 
 #endif

@@ -14,7 +14,7 @@ namespace ser = ros::serialization;
 
 namespace temoto_core
 {
-namespace rmp
+namespace trr
 {
 
 namespace sync_action
@@ -165,7 +165,7 @@ private:
   ros::Subscriber sync_sub_;
 };
 
-} // rmp namespace
+} // trr namespace
 } // temoto_core namespace
 
 #endif
