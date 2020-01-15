@@ -14,6 +14,7 @@ enum status_codes : int
 {
   OK = 0,
   FAILED,
+  UPDATE
 };
 
 namespace srv_name

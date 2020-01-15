@@ -365,7 +365,8 @@ public:
                       temoto_core::ResourceStatus::Response& res)
   {
     TEMOTO_DEBUG("Got status request: "); 
-    TEMOTO_INFO_STREAM(req);
+    TEMOTO_DEBUG_STREAM(req);
+    std::string client_name = "/" + req.temoto_namespace + "/" + req.manager_name + "/" + req.server_name;
     /* 
        if status == FAILED
 
@@ -392,8 +393,6 @@ public:
 
       // Go through clients and locate the one from
       // which the request arrived
-      std::string client_name =
-          "/" + req.temoto_namespace + "/" + req.manager_name + "/" + req.server_name;
       TEMOTO_DEBUG("Got info that resource has failed, looking for client: '%s', external_resource_id: %ld", client_name.c_str(), req.resource_id);
 
       try
@@ -462,6 +461,63 @@ public:
       }
 
     }  // if code == FAILED
+
+    else if (req.status_code == status_codes::UPDATE)
+    {
+      waitForLock(clients_mutex_);
+      BaseResourceClientPtr<Owner> client_ptr = getClientByName(client_name);
+      // get internal ids which are related to the incoming external id from client side
+      const auto int_resources = client_ptr->getInternalResources(req.resource_id);
+      clients_mutex_.unlock();
+
+      temoto_core::ResourceStatus srv;
+      srv.request = req;
+      srv.response = res;
+      for (const auto& int_resource : int_resources)
+      {
+        // for each internal resource, execute owner's callback
+        srv.request.resource_id = int_resource.first;
+        if (status_callback_)
+        {
+          try
+          {
+            (owner_->*status_callback_)(srv);
+          }
+          catch (error::ErrorStack& error_stack)
+          {
+            TEMOTO_ERROR("Caught an error from status callback.");
+            res.error_stack += error_stack;
+          }
+        }
+
+        try
+        {
+          // forward status info to whoever is linked to the given internal resource
+          sendStatus(srv);
+
+          // Take action based on resource failure behavior
+          //switch (int_resource.second)
+          //{
+          //  case trr::FailureBehavior::UNLOAD:
+          //    TEMOTO_WARN("UNLOADING LINKED RESOURCE %d", int_resource.first);
+          //    unlinkResource(int_resource.first);
+
+          //    break;
+          //  case trr::FailureBehavior::RELOAD:
+          //    TEMOTO_WARN("UNLOADING LINKED RESOURCE AND RELOADING %d", int_resource.first);
+          //    unlinkResource(int_resource.first);
+          //    // now try to reload.
+          //    break;
+          //  default:
+          //    TEMOTO_WARN("DEFAULT BEHAVIOR RESOURCE %d", int_resource.first);
+          //}
+        }
+        catch (error::ErrorStack& error_stack)
+        {
+          res.error_stack += FORWARD_ERROR(error_stack);
+        }
+      }
+    }
     return true;
   }
 
