@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(temoto_core)
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++11 -ggdb)
 
 find_package(catkin REQUIRED
   roscpp
@@ -26,6 +26,7 @@ add_service_files(
   # Resouce Management
   UnloadResource.srv
   ResourceStatus.srv
+  Tracing.srv
 )
 
 generate_messages(
@@ -34,27 +35,52 @@ generate_messages(
   diagnostic_msgs
 )
 
+set(headers
+  include
+  ${catkin_INCLUDE_DIRS}
+)
+set(libraries)
+set(src_files)
+
+if( "$ENV{TEMOTO_ENABLE_TRACING}" STREQUAL "true")
+  add_compile_options(-Denable_tracing)
+  list(APPEND headers
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/example/tutorial"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/3rd_party/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/.build/include"
+  )
+  list(APPEND libraries
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/.build/output/libopentracing.so"
+    "-pthread"
+  )
+  list(APPEND src_files
+    src/common/tracer_conversions.cpp
+  )
+endif()
+
 catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES temoto_core_components
+  INCLUDE_DIRS ${headers}
+  LIBRARIES temoto_core_components ${libraries}
   CATKIN_DEPENDS roscpp std_msgs diagnostic_msgs message_generation
-#  DEPENDS system_lib
+  # DEPENDS
 )
 
-include_directories(
- include
- ${catkin_INCLUDE_DIRS}
-)
+include_directories(${headers})
 
 # # # # # # # # # # # #
-# TEMOTO CORE
+# TEMOTO CORE COMPONENTS
 # # # # # # # # # # # #
 add_library(temoto_core_components 
   src/common/reliability.cpp
   src/temoto_error/temoto_error.cpp
+  ${src_files}
 )
 add_dependencies(temoto_core_components ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
-target_link_libraries(temoto_core_components ${catkin_LIBRARIES})
+target_link_libraries(temoto_core_components 
+  ${catkin_LIBRARIES}
+  ${libraries}
+)
 
 install(TARGETS temoto_core_components
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -63,3 +89,42 @@ install(TARGETS temoto_core_components
 
 install(DIRECTORY include/${PROJECT_NAME}/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+
+# TESTING
+add_executable(tracing_app_1_test
+  src/tracing_app_1_test.cpp
+  ${src_files}
+)
+add_dependencies(tracing_app_1_test 
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+)
+target_link_libraries(tracing_app_1_test
+  ${libraries}
+)
+
+add_executable(tracing_app_2_test
+  src/tracing_app_2_test.cpp
+  ${src_files}
+)
+add_dependencies(tracing_app_2_test 
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+)
+target_link_libraries(tracing_app_2_test
+  ${catkin_LIBRARIES}
+  ${libraries}
+)
+
+add_executable(tracing_app_3_test
+  src/tracing_app_3_test.cpp
+  ${src_files}
+)
+add_dependencies(tracing_app_3_test 
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+)
+target_link_libraries(tracing_app_3_test
+  ${catkin_LIBRARIES}
+  ${libraries}
+)

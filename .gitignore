@@ -1,6 +1,7 @@
 # Ignore action build files
 *.so
 lib/
+.build/
 
 # Ignore vim temp files
 *.swp
@@ -17,3 +18,7 @@ lib/
 
 # Ignore deprecated actions
 actions/
+
+# Ignore test files
+*test.cpp
+jaeger-client-cpp/

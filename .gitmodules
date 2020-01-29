@@ -1,0 +1,3 @@
+[submodule "temoto_core/tracing/opentracing-cpp"]
+	path = temoto_core/tracing/opentracing-cpp
+	url = https://github.com/opentracing/opentracing-cpp

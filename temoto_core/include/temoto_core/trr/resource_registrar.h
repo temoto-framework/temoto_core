@@ -10,7 +10,12 @@
 #include <memory>  // dynamic_pointer_cast
 #include <mutex>
 
-// Resource Management Protocol (RMP) for temoto 2
+#ifdef enable_tracing
+  #include <opentracing/dynamic_load.h>
+  #include <text_map_carrier.h>
+  #include "temoto_core/common/tracer_conversions.h"
+#endif
+
 namespace temoto_core
 {
 namespace trr
@@ -22,7 +27,7 @@ class ResourceRegistrar : public BaseSubsystem
   friend class BaseResourceServer<Owner>;
 
 public:
-  ResourceRegistrar(std::string name, Owner* owner)
+  ResourceRegistrar(const std::string& name, Owner* owner)
     : BaseSubsystem(*owner)
     , owner_(owner)
     , name_(name)
@@ -54,6 +59,16 @@ public:
     status_spinner_.start();
     unload_spinner_.start();
   }
+
+#ifdef enable_tracing
+  ResourceRegistrar(const std::string& name
+  , Owner* owner
+  , const std::string& tracer_lib_path
+  , const std::string& tracer_config_path)
+  {
+    ResourceRegistrar(name, owner);
+  }
+#endif
 
   ~ResourceRegistrar()
   {
