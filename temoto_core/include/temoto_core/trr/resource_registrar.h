@@ -16,6 +16,7 @@
   #include "temoto_core/common/tracer_conversions.h"
   #include <fstream>
   #include "ros/package.h"
+  #define TRACER (*tracer_)
 #endif
 
 namespace temoto_core
@@ -48,8 +49,9 @@ public:
      */
     try
     {
+      // TODO: The lib path should be embedded in tracer config
       std::string base_path = ros::package::getPath("temoto_core");
-      std::string tracer_lib_path = base_path + "/temoto_core/tracing/opentracing-cpp/.build/output/libopentracing.so";
+      std::string tracer_lib_path = base_path + "/config/tracer_lib_path";
       std::string tracer_config_path = base_path + "/config/tracer_config.yaml";
       initializeTracer(tracer_lib_path, tracer_config_path, subsystem_name_);
     }
@@ -117,6 +119,9 @@ public:
     unloadClients();
     unload_spinner_.stop();
     status_spinner_.stop();
+    #ifdef enable_tracing
+    TRACER->Close();
+    #endif
   }
 
   template <class ServiceType>
@@ -171,18 +176,25 @@ public:
     using ClientPtr = std::shared_ptr<ClientType>;
     using BaseClientPtr = BaseResourceClientPtr<Owner>;
 
-    ClientPtr client_ptr = NULL;
+    #ifdef enable_tracing
+    auto tracing_span = TRACER->StartSpan(subsystem_name_ + "/paavo");
+    tracing_span->SetTag("asking for", "trouble");
+    std::cout << "YA YA YA YA YA YA YA YA YA YA YA YA" << std::endl;
+    #endif
 
+    ClientPtr client_ptr = NULL;
     waitForLock(clients_mutex_);
 
     // check if this client already exists
     std::string client_name = '/'+temoto_namespace + "/" + resource_registrar_name + "/" + server_name;
+    TEMOTO_TRACED_DEBUG("Testing '%s'.", client_name.c_str());
+
     typename std::vector<BaseClientPtr>::iterator client_it =
         std::find_if(clients_.begin(), clients_.end(),
                      [&](const BaseClientPtr& c) -> bool { return c->getName() == client_name; });
     if (client_it == clients_.end())
     {
-      TEMOTO_DEBUG("Creating new resource client '%s'.", client_name.c_str());
+      TEMOTO_TRACED_DEBUG("Creating new resource client '%s'.", client_name.c_str());
 
       client_ptr = std::make_shared<ClientType>(temoto_namespace, resource_registrar_name,
                                                 server_name, owner_, *this);
@@ -213,7 +225,7 @@ public:
       {
         // if call was sucessful and the call was initiated from server callback,
         // link the client to the server
-        TEMOTO_DEBUG("Linking internal client.");
+        TEMOTO_TRACED_DEBUG("Linking internal client.");
         active_server_->linkInternalResource(msg.response.trr.resource_id);
       }
     }
@@ -225,12 +237,21 @@ public:
     }
 
     clients_mutex_.unlock();
+
+    #ifdef enable_tracing
+    tracing_span->Finish();
+    std::cout << "------------ TRTRT RT RT RT RT RT RT RTR TR"  << std::endl;
+    #endif
   }
 
   bool unloadCallback(temoto_core::UnloadResource::Request& req,
                       temoto_core::UnloadResource::Response& res)
   {
-    TEMOTO_DEBUG("Unload request to server: '%s', ext id: %ld.", req.server_name.c_str(), req.resource_id);
+    #ifdef enable_tracing
+    auto tracing_span = TRACER->StartSpan(__func__);
+    #endif
+
+    TEMOTO_TRACED_DEBUG("Unload request to server: '%s', ext id: %ld.", req.server_name.c_str(), req.resource_id);
     // Find server with requested name
     waitForLock(servers_mutex_);
     for (auto& server : servers_)
@@ -238,12 +259,15 @@ public:
       if (server->getName() == req.server_name)
       {
         server->unloadResource(req, res);
-        TEMOTO_DEBUG("Resource %ld unloaded.", req.resource_id);
+        TEMOTO_TRACED_DEBUG("Resource %ld unloaded.", req.resource_id);
         break;
       }
     }
     servers_mutex_.unlock();
 
+    #ifdef enable_tracing
+    tracing_span->Finish();
+    #endif
     return true;
   }
 
@@ -297,7 +321,11 @@ public:
   // This method sends error/info message to any client connected to this resource.
   void sendStatus(temoto_core::ResourceStatus& srv)
   {
-    TEMOTO_DEBUG("Sending status to internal resource: %ld.", srv.request.resource_id);
+    #ifdef enable_tracing
+    auto tracing_span = TRACER->StartSpan(__func__);
+    #endif
+
+    TEMOTO_TRACED_DEBUG("Sending status to internal resource: %ld.", srv.request.resource_id);
 
     // For storing service and status topic temporarily.
     struct ResourceInfo
@@ -326,7 +354,7 @@ public:
       // query response stack, which is returned when the load callback is processed.
       if (server == active_server_)
       {
-        TEMOTO_WARN("Skipping active server.");
+        TEMOTO_TRACED_WARN("Skipping active server.");
         continue;
       }
       
@@ -339,7 +367,7 @@ public:
       info.srv.request.server_name = server->getName();
       for (const auto& ext_resource : ext_resources)
       {
-        TEMOTO_WARN(" %d, %s ",ext_resource.first,ext_resource.second.c_str());
+        TEMOTO_TRACED_WARN(" %d, %s ",ext_resource.first,ext_resource.second.c_str());
         // ext_resource.first ==> external resource id
         // ext_resource.second ==> status topic
         info.srv.request.resource_id = ext_resource.first;
@@ -355,10 +383,10 @@ public:
     {
       ros::ServiceClient service_client =
           nh_.serviceClient<temoto_core::ResourceStatus>(info.status_topic);
-      TEMOTO_DEBUG("Sending ResourceStatus to %s.", info.status_topic.c_str());
+      TEMOTO_TRACED_DEBUG("Sending ResourceStatus to %s.", info.status_topic.c_str());
       if (service_client.call(info.srv))
       {
-        TEMOTO_DEBUG("ResourceStatus sucessfully sent to %s.", info.status_topic.c_str());
+        TEMOTO_TRACED_DEBUG("ResourceStatus sucessfully sent to %s.", info.status_topic.c_str());
       }
       else
       {
@@ -373,6 +401,10 @@ public:
    //   error_stack += CREATE_ERROR(error::Code::RMP_FAIL, "Internal resource with id %ld was not found from any queries.",
    //                               srv.request.resource_id);
    // }
+
+    #ifdef enable_tracing
+    tracing_span->Finish();
+    #endif
 
     if (!error_stack.empty())
     {
@@ -421,7 +453,11 @@ public:
   bool statusCallback(temoto_core::ResourceStatus::Request& req,
                       temoto_core::ResourceStatus::Response& res)
   {
-    TEMOTO_DEBUG("Got status request: "); 
+    #ifdef enable_tracing
+    auto tracing_span = TRACER->StartSpan(__func__);
+    #endif
+
+    TEMOTO_TRACED_DEBUG("Got status request: "); 
     TEMOTO_DEBUG_STREAM(req);
     std::string client_name = "/" + req.temoto_namespace + "/" + req.manager_name + "/" + req.server_name;
     /* 
@@ -441,16 +477,16 @@ public:
     if (req.status_code == status_codes::FAILED)
     {
       // Debug clients
-//       TEMOTO_DEBUG("STATUS START DEBUGGING CLIENTS");
+//       TEMOTO_TRACED_DEBUG("STATUS START DEBUGGING CLIENTS");
 //       for (auto& client : clients_)
 //       {
-//         TEMOTO_DEBUG("Client:\n%s",client->toString().c_str());
+//         TEMOTO_TRACED_DEBUG("Client:\n%s",client->toString().c_str());
 //       }
-//       TEMOTO_DEBUG("STATUS END DEBUGGING CLIENTS");
+//       TEMOTO_TRACED_DEBUG("STATUS END DEBUGGING CLIENTS");
 
       // Go through clients and locate the one from
       // which the request arrived
-      TEMOTO_DEBUG("Got info that resource has failed, looking for client: '%s', external_resource_id: %ld", client_name.c_str(), req.resource_id);
+      TEMOTO_TRACED_DEBUG("Got info that resource has failed, looking for client: '%s', external_resource_id: %ld", client_name.c_str(), req.resource_id);
 
       try
       {
@@ -476,7 +512,7 @@ public:
             }
             catch (error::ErrorStack& error_stack)
             {
-              TEMOTO_ERROR("Caught an error from status callback.");
+              TEMOTO_TRACED_ERROR("Caught an error from status callback.");
               res.error_stack += error_stack;
             }
           }
@@ -490,17 +526,17 @@ public:
             //switch (int_resource.second)
             //{
             //  case trr::FailureBehavior::UNLOAD:
-            //    TEMOTO_WARN("UNLOADING LINKED RESOURCE %d", int_resource.first);
+            //    TEMOTO_TRACED_WARN("UNLOADING LINKED RESOURCE %d", int_resource.first);
             //    unlinkResource(int_resource.first);
 
             //    break;
             //  case trr::FailureBehavior::RELOAD:
-            //    TEMOTO_WARN("UNLOADING LINKED RESOURCE AND RELOADING %d", int_resource.first);
+            //    TEMOTO_TRACED_WARN("UNLOADING LINKED RESOURCE AND RELOADING %d", int_resource.first);
             //    unlinkResource(int_resource.first);
             //    // now try to reload.
             //    break;
             //  default:
-            //    TEMOTO_WARN("DEFAULT BEHAVIOR RESOURCE %d", int_resource.first);
+            //    TEMOTO_TRACED_WARN("DEFAULT BEHAVIOR RESOURCE %d", int_resource.first);
             //}
           }
           catch (error::ErrorStack& error_stack)
@@ -512,7 +548,7 @@ public:
       catch (error::ErrorStack& error_stack)
       {
         clients_mutex_.unlock();
-        TEMOTO_ERROR("An extreme badness was captured...");
+        TEMOTO_TRACED_ERROR("An extreme badness was captured...");
         res.error_stack += error_stack;
         return true;
       }
@@ -542,7 +578,7 @@ public:
           }
           catch (error::ErrorStack& error_stack)
           {
-            TEMOTO_ERROR("Caught an error from status callback.");
+            TEMOTO_TRACED_ERROR("Caught an error from status callback.");
             res.error_stack += error_stack;
           }
         }
@@ -556,17 +592,17 @@ public:
           //switch (int_resource.second)
           //{
           //  case trr::FailureBehavior::UNLOAD:
-          //    TEMOTO_WARN("UNLOADING LINKED RESOURCE %d", int_resource.first);
+          //    TEMOTO_TRACED_WARN("UNLOADING LINKED RESOURCE %d", int_resource.first);
           //    unlinkResource(int_resource.first);
 
           //    break;
           //  case trr::FailureBehavior::RELOAD:
-          //    TEMOTO_WARN("UNLOADING LINKED RESOURCE AND RELOADING %d", int_resource.first);
+          //    TEMOTO_TRACED_WARN("UNLOADING LINKED RESOURCE AND RELOADING %d", int_resource.first);
           //    unlinkResource(int_resource.first);
           //    // now try to reload.
           //    break;
           //  default:
-          //    TEMOTO_WARN("DEFAULT BEHAVIOR RESOURCE %d", int_resource.first);
+          //    TEMOTO_TRACED_WARN("DEFAULT BEHAVIOR RESOURCE %d", int_resource.first);
           //}
         }
         catch (error::ErrorStack& error_stack)
@@ -575,6 +611,11 @@ public:
         }
       }
     }
+
+    #ifdef enable_tracing
+    tracing_span->Finish();
+    #endif
+
     return true;
   }
 
@@ -658,11 +699,19 @@ private:
     TEMOTO_DEBUG_STREAM("Initializing the tracer");
 
     // Load the tracer library.
+    std::ifstream istream_lib{tracer_lib_path.c_str()};
+    if (!istream_lib.good()) 
+    {
+      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer lib file: " + tracer_lib_path);
+    }
+    std::string tracer_lib_str((std::istreambuf_iterator<char>(istream_lib)),
+                                std::istreambuf_iterator<char>());
+
     std::string error_message;
-    tracer_handle_maybe_ = opentracing::DynamicallyLoadTracingLibrary(tracer_lib_path.c_str(), error_message);
+    tracer_handle_maybe_ = opentracing::DynamicallyLoadTracingLibrary(tracer_lib_str.c_str(), error_message);
     if (!tracer_handle_maybe_) 
     {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to load tracer library" + error_message);
+      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to load tracer library: " + error_message);
     }
 
     // Read in the tracer's configuration.
@@ -672,7 +721,7 @@ private:
       throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer config file: " + tracer_config_path);
     }
 
-    std::string tracer_config = std::string("service_name:" + tracer_name + "\n");
+    std::string tracer_config = std::string("service_name: \"" + tracer_name + "\"\n");
     std::string tracer_config_other{ 
       std::istreambuf_iterator<char>{istream}
     , std::istreambuf_iterator<char>{}};

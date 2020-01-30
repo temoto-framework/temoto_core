@@ -22,3 +22,6 @@ actions/
 # Ignore test files
 *test.cpp
 jaeger-client-cpp/
+
+# Ignore tracing related thins
+tracer_lib_path
