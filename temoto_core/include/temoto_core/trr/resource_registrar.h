@@ -14,6 +14,8 @@
   #include <opentracing/dynamic_load.h>
   #include <text_map_carrier.h>
   #include "temoto_core/common/tracer_conversions.h"
+  #include <fstream>
+  #include "ros/package.h"
 #endif
 
 namespace temoto_core
@@ -28,18 +30,42 @@ class ResourceRegistrar : public BaseSubsystem
 
 public:
   ResourceRegistrar(const std::string& name, Owner* owner)
-    : BaseSubsystem(*owner)
-    , owner_(owner)
-    , name_(name)
-    , status_callback_(NULL)
-    , status_spinner_(1, &status_cb_queue_)
-    , unload_spinner_(1, &unload_cb_queue_)
+  : BaseSubsystem(*owner)
+  , owner_(owner)
+  , name_(name)
+  , status_callback_(NULL)
+  , status_spinner_(1, &status_cb_queue_)
+  , unload_spinner_(1, &unload_cb_queue_)
   {
+    // TODO: the following 3 lines are redundant if base subsystem is given
     subsystem_name_ = name;
     this->class_name_ = __func__;
     this->log_group_ = "trr." + this->log_group_;
 
-    // set up status callback with separately threaded queue
+    #ifdef enable_tracing
+    /*
+     * Set up the tracer
+     */
+    try
+    {
+      std::string base_path = ros::package::getPath("temoto_core");
+      std::string tracer_lib_path = base_path + "/temoto_core/tracing/opentracing-cpp/.build/output/libopentracing.so";
+      std::string tracer_config_path = base_path + "/config/tracer_config.yaml";
+      initializeTracer(tracer_lib_path, tracer_config_path, subsystem_name_);
+    }
+    catch (error::ErrorStack& error_stack)
+    {
+      SEND_ERROR(error_stack);
+    }
+    catch(...)
+    {
+      TEMOTO_ERROR_STREAM("Unable to initialize the tracer");
+    }
+    #endif
+
+    /*
+     * set up status callback with separately threaded queue
+     */ 
     std::string status_srv_name = name_ + "/status";
     ros::AdvertiseServiceOptions status_service_opts =
         ros::AdvertiseServiceOptions::create<temoto_core::ResourceStatus>(
@@ -47,7 +73,9 @@ public:
             ros::VoidPtr(), &this->status_cb_queue_);
     status_server_ = nh_.advertiseService(status_service_opts);
 
-    // set up unload callback with separately threaded queue
+    /*
+     * set up unload callback with separately threaded queue
+     */ 
     std::string unload_srv_name = name_ + "/unload";
     ros::AdvertiseServiceOptions unload_service_opts =
         ros::AdvertiseServiceOptions::create<temoto_core::UnloadResource>(
@@ -55,20 +83,34 @@ public:
             ros::VoidPtr(), &this->unload_cb_queue_);
     unload_server_ = nh_.advertiseService(unload_service_opts);
 
-    // start separate threaded spinners for our callback queues
+    /*
+     * start separate threaded spinners for our callback queues
+     */ 
     status_spinner_.start();
     unload_spinner_.start();
   }
 
-#ifdef enable_tracing
-  ResourceRegistrar(const std::string& name
-  , Owner* owner
-  , const std::string& tracer_lib_path
-  , const std::string& tracer_config_path)
-  {
-    ResourceRegistrar(name, owner);
-  }
-#endif
+// #ifdef enable_tracing
+//   ResourceRegistrar(const std::string& name
+//   , Owner* owner
+//   , const std::string& tracer_lib_path
+//   , const std::string& tracer_config_path)
+//   {
+//     ResourceRegistrar(name, owner);
+//     try
+//     {
+//       initializeTracer(tracer_lib_path, tracer_config_path);
+//     }
+//     catch (error::ErrorStack& error_stack)
+//     {
+//       SEND_ERROR(error_stack);
+//     }
+//     catch(...)
+//     {
+//       TEMOTO_ERROR_STREAM("Unable to initialize the tracer");
+//     }
+//   }
+// #endif
 
   ~ResourceRegistrar()
   {
@@ -606,6 +648,49 @@ private:
       ros::Duration(0.2).sleep();  // sleep for few ms
     }
   }
+
+#ifdef enable_tracing
+  void initializeTracer(
+    const std::string& tracer_lib_path
+  , const std::string& tracer_config_path
+  , const std::string& tracer_name)
+  {
+    TEMOTO_DEBUG_STREAM("Initializing the tracer");
+
+    // Load the tracer library.
+    std::string error_message;
+    tracer_handle_maybe_ = opentracing::DynamicallyLoadTracingLibrary(tracer_lib_path.c_str(), error_message);
+    if (!tracer_handle_maybe_) 
+    {
+      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to load tracer library" + error_message);
+    }
+
+    // Read in the tracer's configuration.
+    std::ifstream istream{tracer_config_path.c_str()};
+    if (!istream.good()) 
+    {
+      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer config file: " + tracer_config_path);
+    }
+
+    std::string tracer_config = std::string("service_name:" + tracer_name + "\n");
+    std::string tracer_config_other{ 
+      std::istreambuf_iterator<char>{istream}
+    , std::istreambuf_iterator<char>{}};
+    tracer_config += tracer_config_other;
+
+    // Construct a tracer
+    tracer_ = tracer_handle_maybe_->tracer_factory().MakeTracer(tracer_config.c_str(), error_message);
+
+    if (!tracer_) 
+    {
+      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to create a tracer: " + error_message);
+    }
+    TEMOTO_DEBUG_STREAM("Tracer initialized");
+  }
+
+  opentracing::v2::expected<opentracing::v2::DynamicTracingLibraryHandle> tracer_handle_maybe_;
+  opentracing::v2::expected<std::shared_ptr<opentracing::v2::Tracer>> tracer_;
+#endif
 
   std::vector<std::shared_ptr<BaseResourceServer<Owner>>> servers_;
   std::vector<std::shared_ptr<BaseResourceClient<Owner>>> clients_;

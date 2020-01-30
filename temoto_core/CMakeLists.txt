@@ -4,6 +4,7 @@ add_compile_options(-std=c++11 -ggdb)
 
 find_package(catkin REQUIRED
   roscpp
+  roslib
   std_msgs
   diagnostic_msgs
   message_generation
