@@ -39,8 +39,11 @@ generate_messages(
 set(headers
   include
   ${catkin_INCLUDE_DIRS}
+  "${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/include"
 )
-set(libraries)
+set(libraries
+  "${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so"
+)
 set(src_files)
 
 if( "$ENV{TEMOTO_ENABLE_TRACING}" STREQUAL "true")
@@ -115,6 +118,7 @@ add_dependencies(tracing_app_2_test
 target_link_libraries(tracing_app_2_test
   ${catkin_LIBRARIES}
   ${libraries}
+#  yaml-cpp
 )
 
 add_executable(tracing_app_3_test

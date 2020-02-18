@@ -721,7 +721,7 @@ private:
       throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer config file: " + tracer_config_path);
     }
 
-    std::string tracer_config = std::string("service_name: \"" + tracer_name + "\"\n");
+    std::string tracer_config = std::string("service_name: " + tracer_name + "\n");
     std::string tracer_config_other{ 
       std::istreambuf_iterator<char>{istream}
     , std::istreambuf_iterator<char>{}};

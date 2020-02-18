@@ -1,3 +1,6 @@
 [submodule "temoto_core/tracing/opentracing-cpp"]
 	path = temoto_core/tracing/opentracing-cpp
 	url = https://github.com/opentracing/opentracing-cpp
+[submodule "temoto_core/yaml-cpp"]
+	path = temoto_core/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp
