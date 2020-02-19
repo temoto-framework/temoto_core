@@ -36,6 +36,20 @@ generate_messages(
   diagnostic_msgs
 )
 
+# Build yaml-cpp version 0.6.2
+include(ExternalProject)
+
+ExternalProject_Add(yaml-cpp062
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp
+  BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build
+  CMAKE_ARGS
+    -DBUILD_SHARED_LIBS=ON
+    -DYAML_CPP_BUILD_TESTS=OFF
+    -Wno-dev
+  BUILD_COMMAND $(MAKE) -j
+  INSTALL_COMMAND cmake -E echo "Skipping install step."
+)
+
 set(headers
   include
   ${catkin_INCLUDE_DIRS}
@@ -80,7 +94,11 @@ add_library(temoto_core_components
   src/temoto_error/temoto_error.cpp
   ${src_files}
 )
-add_dependencies(temoto_core_components ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(temoto_core_components
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  yaml-cpp062
+)
 target_link_libraries(temoto_core_components 
   ${catkin_LIBRARIES}
   ${libraries}
@@ -95,41 +113,41 @@ install(DIRECTORY include/${PROJECT_NAME}/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 
 # TESTING
-add_executable(tracing_app_1_test
-  src/tracing_app_1_test.cpp
-  ${src_files}
-)
-add_dependencies(tracing_app_1_test 
-  ${catkin_EXPORTED_TARGETS}
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-)
-target_link_libraries(tracing_app_1_test
-  ${libraries}
-)
+# add_executable(tracing_app_1_test
+#   src/tracing_app_1_test.cpp
+#   ${src_files}
+# )
+# add_dependencies(tracing_app_1_test 
+#   ${catkin_EXPORTED_TARGETS}
+#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
+# )
+# target_link_libraries(tracing_app_1_test
+#   ${libraries}
+# )
 
-add_executable(tracing_app_2_test
-  src/tracing_app_2_test.cpp
-  ${src_files}
-)
-add_dependencies(tracing_app_2_test 
-  ${catkin_EXPORTED_TARGETS}
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-)
-target_link_libraries(tracing_app_2_test
-  ${catkin_LIBRARIES}
-  ${libraries}
-#  yaml-cpp
-)
+# add_executable(tracing_app_2_test
+#   src/tracing_app_2_test.cpp
+#   ${src_files}
+# )
+# add_dependencies(tracing_app_2_test 
+#   ${catkin_EXPORTED_TARGETS}
+#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#   yaml-cpp062
+# )
+# target_link_libraries(tracing_app_2_test
+#   ${catkin_LIBRARIES}
+#   ${libraries}
+# )
 
-add_executable(tracing_app_3_test
-  src/tracing_app_3_test.cpp
-  ${src_files}
-)
-add_dependencies(tracing_app_3_test 
-  ${catkin_EXPORTED_TARGETS}
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-)
-target_link_libraries(tracing_app_3_test
-  ${catkin_LIBRARIES}
-  ${libraries}
-)
+# add_executable(tracing_app_3_test
+#   src/tracing_app_3_test.cpp
+#   ${src_files}
+# )
+# add_dependencies(tracing_app_3_test 
+#   ${catkin_EXPORTED_TARGETS}
+#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
+# )
+# target_link_libraries(tracing_app_3_test
+#   ${catkin_LIBRARIES}
+#   ${libraries}
+# )
