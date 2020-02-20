@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(temoto_core)
 add_compile_options(-std=c++11 -ggdb)
 
+option(TEMOTO_ENABLE_TRACING "Build tracer related dependencies" OFF)
+
 find_package(catkin REQUIRED
   roscpp
   roslib
@@ -39,7 +41,7 @@ generate_messages(
 # Build yaml-cpp version 0.6.2
 include(ExternalProject)
 
-ExternalProject_Add(yaml-cpp062
+ExternalProject_Add(yaml-cpp-062
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp
   BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build
   CMAKE_ARGS
@@ -60,20 +62,38 @@ set(libraries
 )
 set(src_files)
 
-if( "$ENV{TEMOTO_ENABLE_TRACING}" STREQUAL "true")
+set(tracing_dependencies)
+
+if(TEMOTO_ENABLE_TRACING)
   add_compile_options(-Denable_tracing)
+
+  # Build OpenTracing 1.5.0
+  include(ExternalProject)
+
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/include)
+
+  ExternalProject_Add(open-tracing-150
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp
+    BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build
+    BUILD_COMMAND $(MAKE) -j
+    INSTALL_COMMAND cmake -E echo "Skipping install step."
+  )
+
   list(APPEND headers
     "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/example/tutorial"
     "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/3rd_party/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/.build/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/include"
   )
   list(APPEND libraries
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/.build/output/libopentracing.so"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/output/libopentracing.so"
     "-pthread"
   )
   list(APPEND src_files
     src/common/tracer_conversions.cpp
+  )
+  list(APPEND tracing_dependencies
+    open-tracing-150
   )
 endif()
 
@@ -97,7 +117,8 @@ add_library(temoto_core_components
 add_dependencies(temoto_core_components
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  yaml-cpp062
+  ${tracing_dependencies}
+  yaml-cpp-062
 )
 target_link_libraries(temoto_core_components 
   ${catkin_LIBRARIES}
@@ -112,42 +133,47 @@ install(TARGETS temoto_core_components
 install(DIRECTORY include/${PROJECT_NAME}/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 
-# TESTING
-# add_executable(tracing_app_1_test
-#   src/tracing_app_1_test.cpp
-#   ${src_files}
-# )
-# add_dependencies(tracing_app_1_test 
-#   ${catkin_EXPORTED_TARGETS}
-#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
-# )
-# target_link_libraries(tracing_app_1_test
-#   ${libraries}
-# )
+# Build tracing related targets
+if(TEMOTO_ENABLE_TRACING)
+  add_executable(tracing_app_1_test
+    src/examples/tracing_app_1_test.cpp
+    ${src_files}
+  )
+  add_dependencies(tracing_app_1_test 
+    ${catkin_EXPORTED_TARGETS}
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${tracing_dependencies}
+  )
+  target_link_libraries(tracing_app_1_test
+    ${libraries}
+  )
 
-# add_executable(tracing_app_2_test
-#   src/tracing_app_2_test.cpp
-#   ${src_files}
-# )
-# add_dependencies(tracing_app_2_test 
-#   ${catkin_EXPORTED_TARGETS}
-#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#   yaml-cpp062
-# )
-# target_link_libraries(tracing_app_2_test
-#   ${catkin_LIBRARIES}
-#   ${libraries}
-# )
+  add_executable(tracing_app_2_test
+    src/examples/tracing_app_2_test.cpp
+    ${src_files}
+  )
+  add_dependencies(tracing_app_2_test 
+    ${catkin_EXPORTED_TARGETS}
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${tracing_dependencies}
+    yaml-cpp-062
+  )
+  target_link_libraries(tracing_app_2_test
+    ${catkin_LIBRARIES}
+    ${libraries}
+  )
 
-# add_executable(tracing_app_3_test
-#   src/tracing_app_3_test.cpp
-#   ${src_files}
-# )
-# add_dependencies(tracing_app_3_test 
-#   ${catkin_EXPORTED_TARGETS}
-#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
-# )
-# target_link_libraries(tracing_app_3_test
-#   ${catkin_LIBRARIES}
-#   ${libraries}
-# )
+  add_executable(tracing_app_3_test
+    src/examples/tracing_app_3_test.cpp
+    ${src_files}
+  )
+  add_dependencies(tracing_app_3_test 
+    ${catkin_EXPORTED_TARGETS}
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${tracing_dependencies}
+  )
+  target_link_libraries(tracing_app_3_test
+    ${catkin_LIBRARIES}
+    ${libraries}
+  )
+endif()
