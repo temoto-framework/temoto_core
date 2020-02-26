@@ -12,10 +12,10 @@
 #define TEMOTO_ERROR(...) TEMOTO_LOG(::ros::console::levels::Error, TEMOTO_CONSOLE_NAME, __VA_ARGS__)
 
 #ifdef enable_tracing
-  #define TEMOTO_TRACED_DEBUG(...) TEMOTO_LOG(::ros::console::levels::Debug, TEMOTO_CONSOLE_NAME, __VA_ARGS__); char s[1024]; sprintf(s, __VA_ARGS__); std::cout << "YO " << s << std::endl; tracing_span->Log({{"debug", s}})
-  #define TEMOTO_TRACED_INFO(...) TEMOTO_LOG(::ros::console::levels::Info, TEMOTO_CONSOLE_NAME, __VA_ARGS__); char s[1024]; sprintf(s, __VA_ARGS__); std::cout << "YO " << s << std::endl;tracing_spann->Log({{"info", s}})
-  #define TEMOTO_TRACED_WARN(...) TEMOTO_LOG(::ros::console::levels::Warn, TEMOTO_CONSOLE_NAME, __VA_ARGS__); char s[1024]; sprintf(s, __VA_ARGS__); std::cout << "YO " << s << std::endl;tracing_span->Log({{"warning", s}})
-  #define TEMOTO_TRACED_ERROR(...) TEMOTO_LOG(::ros::console::levels::Error, TEMOTO_CONSOLE_NAME, __VA_ARGS__); char s[1024]; sprintf(s, __VA_ARGS__); std::cout << "YO " << s << std::endl;tracing_span->Log({{"error", s}})
+  #define TEMOTO_TRACED_DEBUG(...) TEMOTO_LOG(::ros::console::levels::Debug, TEMOTO_CONSOLE_NAME, __VA_ARGS__); {char s[1024]; sprintf(s, __VA_ARGS__);  tracing_span->Log({{"debug", s}});}
+  #define TEMOTO_TRACED_INFO(...) TEMOTO_LOG(::ros::console::levels::Info, TEMOTO_CONSOLE_NAME, __VA_ARGS__); {char s[1024]; sprintf(s, __VA_ARGS__); tracing_spann->Log({{"info", s}});}
+  #define TEMOTO_TRACED_WARN(...) TEMOTO_LOG(::ros::console::levels::Warn, TEMOTO_CONSOLE_NAME, __VA_ARGS__); {char s[1024]; sprintf(s, __VA_ARGS__); tracing_span->Log({{"warning", s}});}
+  #define TEMOTO_TRACED_ERROR(...) TEMOTO_LOG(::ros::console::levels::Error, TEMOTO_CONSOLE_NAME, __VA_ARGS__); {char s[1024]; sprintf(s, __VA_ARGS__); tracing_span->Log({{"error", s}});}
 #else
   #define TEMOTO_TRACED_DEBUG(...) TEMOTO_LOG(::ros::console::levels::Debug, TEMOTO_CONSOLE_NAME, __VA_ARGS__)
   #define TEMOTO_TRACED_INFO(...) TEMOTO_LOG(::ros::console::levels::Info, TEMOTO_CONSOLE_NAME, __VA_ARGS__)

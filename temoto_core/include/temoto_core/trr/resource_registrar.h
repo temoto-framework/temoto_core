@@ -1,3 +1,22 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Copyright 2020 TeMoto Telerobotics
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* Author: Veiko Vunder */
+/* Author: Robert Valner */
+
 #ifndef TEMOTO_CORE__RESOURCE_REGISTRAR_H
 #define TEMOTO_CORE__RESOURCE_REGISTRAR_H
 
@@ -9,15 +28,6 @@
 #include <string>
 #include <memory>  // dynamic_pointer_cast
 #include <mutex>
-
-#ifdef enable_tracing
-  #include <opentracing/dynamic_load.h>
-  #include <text_map_carrier.h>
-  #include "temoto_core/common/tracer_conversions.h"
-  #include <fstream>
-  #include "ros/package.h"
-  #define TRACER (*tracer_)
-#endif
 
 namespace temoto_core
 {
@@ -31,40 +41,13 @@ class ResourceRegistrar : public BaseSubsystem
 
 public:
   ResourceRegistrar(const std::string& name, Owner* owner)
-  : BaseSubsystem(*owner)
+  : BaseSubsystem(owner->subsystem_name_, owner->subsystem_code_, __func__, "trr." + owner->log_group_)
   , owner_(owner)
   , name_(name)
   , status_callback_(NULL)
   , status_spinner_(1, &status_cb_queue_)
   , unload_spinner_(1, &unload_cb_queue_)
   {
-    // TODO: the following 3 lines are redundant if base subsystem is given
-    subsystem_name_ = name;
-    this->class_name_ = __func__;
-    this->log_group_ = "trr." + this->log_group_;
-
-    #ifdef enable_tracing
-    /*
-     * Set up the tracer
-     */
-    try
-    {
-      // TODO: The lib path should be embedded in tracer config
-      std::string base_path = ros::package::getPath("temoto_core");
-      std::string tracer_lib_path = base_path + "/config/tracer_lib_path";
-      std::string tracer_config_path = base_path + "/config/tracer_config.yaml";
-      initializeTracer(tracer_lib_path, tracer_config_path, subsystem_name_);
-    }
-    catch (error::ErrorStack& error_stack)
-    {
-      SEND_ERROR(error_stack);
-    }
-    catch(...)
-    {
-      TEMOTO_ERROR_STREAM("Unable to initialize the tracer");
-    }
-    #endif
-
     /*
      * set up status callback with separately threaded queue
      */ 
@@ -177,9 +160,7 @@ public:
     using BaseClientPtr = BaseResourceClientPtr<Owner>;
 
     #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(subsystem_name_ + "/paavo");
-    tracing_span->SetTag("asking for", "trouble");
-    std::cout << "YA YA YA YA YA YA YA YA YA YA YA YA" << std::endl;
+    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
     #endif
 
     ClientPtr client_ptr = NULL;
@@ -187,7 +168,7 @@ public:
 
     // check if this client already exists
     std::string client_name = '/'+temoto_namespace + "/" + resource_registrar_name + "/" + server_name;
-    TEMOTO_TRACED_DEBUG("Testing '%s'.", client_name.c_str());
+    TEMOTO_TRACED_DEBUG("Calling '%s'.", client_name.c_str());
 
     typename std::vector<BaseClientPtr>::iterator client_it =
         std::find_if(clients_.begin(), clients_.end(),
@@ -218,6 +199,27 @@ public:
     
     try
     {
+      #ifdef enable_tracing
+      
+      /*
+       * Propagate the context of the span to the invoked subroutines
+       * TODO: this segment of code will crash if the tracer is uninitialized
+       */ 
+      temoto_core::StringMap string_map;
+      TextMapCarrier carrier(string_map);
+      auto err = TRACER->Inject(tracing_span->context(), carrier);
+      
+      if(!err)
+      {
+        TEMOTO_WARN_STREAM("Failed to get the context of a tracing span");
+      }
+      else
+      {
+        // Convert it to a key value pair vector and send it to a child tracer
+        msg.request.trr.tracer_context = temoto_core::unorderedMapToKeyValues(string_map);
+      }
+      #endif
+
       // make the call
       client_ptr->call(msg, failure_behavior);
 
@@ -237,18 +239,13 @@ public:
     }
 
     clients_mutex_.unlock();
-
-    #ifdef enable_tracing
-    tracing_span->Finish();
-    std::cout << "------------ TRTRT RT RT RT RT RT RT RTR TR"  << std::endl;
-    #endif
   }
 
   bool unloadCallback(temoto_core::UnloadResource::Request& req,
                       temoto_core::UnloadResource::Response& res)
   {
     #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(__func__);
+    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
     #endif
 
     TEMOTO_TRACED_DEBUG("Unload request to server: '%s', ext id: %ld.", req.server_name.c_str(), req.resource_id);
@@ -264,10 +261,6 @@ public:
       }
     }
     servers_mutex_.unlock();
-
-    #ifdef enable_tracing
-    tracing_span->Finish();
-    #endif
     return true;
   }
 
@@ -322,7 +315,7 @@ public:
   void sendStatus(temoto_core::ResourceStatus& srv)
   {
     #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(__func__);
+    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
     #endif
 
     TEMOTO_TRACED_DEBUG("Sending status to internal resource: %ld.", srv.request.resource_id);
@@ -402,10 +395,6 @@ public:
    //                               srv.request.resource_id);
    // }
 
-    #ifdef enable_tracing
-    tracing_span->Finish();
-    #endif
-
     if (!error_stack.empty())
     {
       throw error_stack;
@@ -454,7 +443,7 @@ public:
                       temoto_core::ResourceStatus::Response& res)
   {
     #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(__func__);
+    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
     #endif
 
     TEMOTO_TRACED_DEBUG("Got status request: "); 
@@ -612,10 +601,6 @@ public:
       }
     }
 
-    #ifdef enable_tracing
-    tracing_span->Finish();
-    #endif
-
     return true;
   }
 
@@ -689,57 +674,6 @@ private:
       ros::Duration(0.2).sleep();  // sleep for few ms
     }
   }
-
-#ifdef enable_tracing
-  void initializeTracer(
-    const std::string& tracer_lib_path
-  , const std::string& tracer_config_path
-  , const std::string& tracer_name)
-  {
-    TEMOTO_DEBUG_STREAM("Initializing the tracer");
-
-    // Load the tracer library.
-    std::ifstream istream_lib{tracer_lib_path.c_str()};
-    if (!istream_lib.good()) 
-    {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer lib file: " + tracer_lib_path);
-    }
-    std::string tracer_lib_str((std::istreambuf_iterator<char>(istream_lib)),
-                                std::istreambuf_iterator<char>());
-
-    std::string error_message;
-    tracer_handle_maybe_ = opentracing::DynamicallyLoadTracingLibrary(tracer_lib_str.c_str(), error_message);
-    if (!tracer_handle_maybe_) 
-    {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to load tracer library: " + error_message);
-    }
-
-    // Read in the tracer's configuration.
-    std::ifstream istream{tracer_config_path.c_str()};
-    if (!istream.good()) 
-    {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer config file: " + tracer_config_path);
-    }
-
-    std::string tracer_config = std::string("service_name: " + tracer_name + "\n");
-    std::string tracer_config_other{ 
-      std::istreambuf_iterator<char>{istream}
-    , std::istreambuf_iterator<char>{}};
-    tracer_config += tracer_config_other;
-
-    // Construct a tracer
-    tracer_ = tracer_handle_maybe_->tracer_factory().MakeTracer(tracer_config.c_str(), error_message);
-
-    if (!tracer_) 
-    {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to create a tracer: " + error_message);
-    }
-    TEMOTO_DEBUG_STREAM("Tracer initialized");
-  }
-
-  opentracing::v2::expected<opentracing::v2::DynamicTracingLibraryHandle> tracer_handle_maybe_;
-  opentracing::v2::expected<std::shared_ptr<opentracing::v2::Tracer>> tracer_;
-#endif
 
   std::vector<std::shared_ptr<BaseResourceServer<Owner>>> servers_;
   std::vector<std::shared_ptr<BaseResourceClient<Owner>>> clients_;

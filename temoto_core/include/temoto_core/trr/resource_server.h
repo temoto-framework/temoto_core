@@ -24,17 +24,17 @@ public:
   typedef void (Owner::*UnloadCbFuncType)(typename ServiceType::Request&,
                                           typename ServiceType::Response&);
 
-  ResourceServer(std::string name, LoadCbFuncType load_cb, UnloadCbFuncType unload_cb, Owner* owner,
-                 ResourceRegistrar<Owner>& resource_registrar)
-    : BaseResourceServer<Owner>(name, resource_registrar)
-    , load_callback_(load_cb)
-    , unload_callback_(unload_cb)
-    , owner_(owner)
-    , load_spinner_(2, &load_cb_queue_)
-
+  ResourceServer( std::string name
+                , LoadCbFuncType load_cb
+                , UnloadCbFuncType unload_cb
+                , Owner* owner
+                , ResourceRegistrar<Owner>& resource_registrar)
+  : BaseResourceServer<Owner>(name, __func__, resource_registrar)
+  , load_callback_(load_cb)
+  , unload_callback_(unload_cb)
+  , owner_(owner)
+  , load_spinner_(2, &load_cb_queue_)
   {
-    this->class_name_ = __func__;
-
     std::string rm_name = this->resource_registrar_.getName();
     std::string server_srv_name = rm_name + "/" + this->name_;
 
@@ -97,7 +97,18 @@ public:
 
   bool wrappedLoadCallback(typename ServiceType::Request& req, typename ServiceType::Response& res)
   {
-    TEMOTO_DEBUG("Got query with status_topic: '%s'.", req.trr.status_topic.c_str());
+    #ifdef enable_tracing 
+    /*
+     * Propagate the context of the span to the invoked subroutines
+     */
+    temoto_core::StringMap string_map = temoto_core::keyValuesToUnorderedMap(req.trr.tracer_context);
+    TextMapCarrier carrier(string_map);
+    auto span_context_maybe = TRACER->Extract(carrier);
+    //assert(span_context_maybe);
+    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    #endif
+
+    TEMOTO_TRACED_DEBUG("Got query with status_topic: '%s'.", req.trr.status_topic.c_str());
 
     if (!owner_)
     {
@@ -109,7 +120,7 @@ public:
 
     // generate new external id for the resource
     temoto_id::ID ext_resource_id = this->resource_registrar_.generateID();
-    TEMOTO_DEBUG("Generated external id: '%d'.", ext_resource_id);
+    TEMOTO_TRACED_DEBUG("Generated external id: '%d'.", ext_resource_id);
 
     // lock the queries
     waitForLock(queries_mutex_);
@@ -126,7 +137,7 @@ public:
       // with this id, owner can send status messages later when necessary
       temoto_id::ID int_resource_id = this->resource_registrar_.generateID();
       res.trr.resource_id = int_resource_id;
-      TEMOTO_DEBUG("New query, server generated new internal id: '%d'.", int_resource_id);
+      TEMOTO_TRACED_DEBUG("New query, server generated new internal id: '%d'.", int_resource_id);
 
       // equal message not found from queries_, add new query
       try
@@ -287,7 +298,7 @@ public:
       {
         // found equal request, simply reqister this in the query
         // and respond with previous data and a unique resoure_id.
-        TEMOTO_DEBUG("Existing query, linking to the found query.");
+        TEMOTO_TRACED_DEBUG("Existing query, linking to the found query.");
         queries_.back().addExternalResource(ext_resource_id, req.trr.status_topic);
         res = found_query->getMsg().response;
         res.trr.resource_id = ext_resource_id;
