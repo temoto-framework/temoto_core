@@ -1,7 +1,0 @@
-library_path: /home/robert/catkin_workspaces/sandbox_ws/src/temoto/temoto_core/temoto_core/tracing/jaeger-client-cpp/build/libjaegertracing.so
-disabled: false
-reporter:
-  logSpans: true
-sampler:
-  type: const
-  param: 1
