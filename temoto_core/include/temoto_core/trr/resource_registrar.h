@@ -327,8 +327,23 @@ public:
   // This method sends error/info message to any client connected to this resource.
   void sendStatus(temoto_core::ResourceStatus& srv)
   {
-    #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    #ifdef enable_tracing 
+    /*
+     * Propagate the context of the span to the invoked subroutines
+     */
+    temoto_core::StringMap parent_tracer_span_context = temoto_core::keyValuesToUnorderedMap(srv.request.tracer_context);
+    TextMapCarrier context_carrier(parent_tracer_span_context);
+    auto span_context_maybe = TRACER->Extract(context_carrier);
+    
+    std::unique_ptr<opentracing::Span> tracing_span;
+    if(span_context_maybe)
+    {
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    }
+    else
+    {
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    }
     #endif
 
     TEMOTO_TRACED_DEBUG("Sending status to internal resource: %ld.", srv.request.resource_id);
@@ -384,9 +399,22 @@ public:
     servers_mutex_.unlock();
 
     // forward status info to whoever is related with the given resource
+    #ifdef enable_tracing
+    temoto_core::StringMap current_span_context;
+    TextMapCarrier carrier(current_span_context);
+    auto err = TRACER->Inject(tracing_span->context(), carrier);
+    #endif
+
     error::ErrorStack error_stack;
     for (auto& info : infos)
     {
+      #ifdef enable_tracing
+      if(err)
+      {
+        info.srv.request.tracer_context = temoto_core::unorderedMapToKeyValues(current_span_context);
+      }
+      #endif
+
       ros::ServiceClient service_client =
           nh_.serviceClient<temoto_core::ResourceStatus>(info.status_topic);
       TEMOTO_TRACED_DEBUG("Sending ResourceStatus to %s.", info.status_topic.c_str());
@@ -455,12 +483,19 @@ public:
   bool statusCallback(temoto_core::ResourceStatus::Request& req,
                       temoto_core::ResourceStatus::Response& res)
   {
-    #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    #ifdef enable_tracing 
+    /*
+     * Propagate the context of the span to the invoked subroutines
+     */
+    temoto_core::StringMap parent_tracer_span_context = temoto_core::keyValuesToUnorderedMap(req.tracer_context);
+    TextMapCarrier carrier(parent_tracer_span_context);
+    auto span_context_maybe = TRACER->Extract(carrier);
+    //assert(span_context_maybe);
+    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
     #endif
 
     TEMOTO_TRACED_DEBUG("Got status request: "); 
-    TEMOTO_DEBUG_STREAM(req);
+    TEMOTO_DEBUG_STREAM(req); // TODO: Create a temoto traced debug stream macro
     std::string client_name = "/" + req.temoto_namespace + "/" + req.manager_name + "/" + req.server_name;
     /* 
        if status == FAILED

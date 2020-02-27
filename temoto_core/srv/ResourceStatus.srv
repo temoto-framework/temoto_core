@@ -16,6 +16,9 @@ int64 status_code
 # Additional info about what happened with who.
 string message
 
+# Contains information of parent tracer context
+diagnostic_msgs/KeyValue[] tracer_context
+
 # Errorstack
 temoto_core/Error[] error_stack
 
