@@ -44,6 +44,13 @@ public:
 		return name_;
 	};
 
+	#ifdef enable_tracing
+  temoto_core::StringMap getTracerSpanContext()
+  {
+    return active_tracer_context_;
+  }
+  #endif
+
 	virtual void linkInternalResource(temoto_id::ID resource_id) = 0;
 	virtual void unlinkInternalResource(temoto_id::ID resource_id) = 0;
 	virtual bool isLinkedTo(temoto_id::ID resource_id) const = 0;
@@ -70,7 +77,9 @@ protected:
 	ResourceRegistrar<Owner>& resource_registrar_;
 	std::string name_;
 
-
+	#ifdef enable_tracing
+  temoto_core::StringMap active_tracer_context_;
+  #endif
 private:
 };
 

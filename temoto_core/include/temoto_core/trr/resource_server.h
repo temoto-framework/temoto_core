@@ -101,8 +101,8 @@ public:
     /*
      * Propagate the context of the span to the invoked subroutines
      */
-    temoto_core::StringMap string_map = temoto_core::keyValuesToUnorderedMap(req.trr.tracer_context);
-    TextMapCarrier carrier(string_map);
+    temoto_core::StringMap parent_tracer_span_context = temoto_core::keyValuesToUnorderedMap(req.trr.tracer_context);
+    TextMapCarrier carrier(parent_tracer_span_context);
     auto span_context_maybe = TRACER->Extract(carrier);
     //assert(span_context_maybe);
     auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
@@ -161,6 +161,21 @@ public:
       try
       {
         this->activateServer();
+
+        #ifdef enable_tracing
+        temoto_core::StringMap current_span_context;
+        TextMapCarrier carrier(current_span_context);
+        auto err = TRACER->Inject(tracing_span->context(), carrier);
+        
+        if(!err)
+        {
+          TEMOTO_WARN_STREAM("Failed to get the context of a tracing span");
+        }
+        else
+        {
+          this->active_tracer_context_ = current_span_context;
+        }
+        #endif
       }
       catch(error::ErrorStack& error_stack)
       {

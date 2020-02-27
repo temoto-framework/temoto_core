@@ -28,6 +28,7 @@
   #include "temoto_core/common/tracer_conversions.h"
   #include <fstream>
   #include "ros/package.h"
+  #include <yaml-cpp/yaml.h>
   #define TRACER (*(this->tracer_))
 #endif
 
@@ -160,29 +161,15 @@ protected:
 
 private:
 #ifdef enable_tracing
-  void initializeTracer( const std::string& tracer_lib_path
-                       , const std::string& tracer_config_path
-                       , const std::string& tracer_name)
+  void initializeTracer( const std::string& tracer_config_path
+                       , const std::string& tracer_name
+                       , const std::string& tracer_lib_path = "")
   {
     TEMOTO_DEBUG_STREAM("Initializing the tracer");
 
-    // Load the tracer library.
-    std::ifstream istream_lib{tracer_lib_path.c_str()};
-    if (!istream_lib.good()) 
-    {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to open tracer lib file: " + tracer_lib_path);
-    }
-    std::string tracer_lib_str((std::istreambuf_iterator<char>(istream_lib)),
-                                std::istreambuf_iterator<char>());
-
-    std::string error_message;
-    tracer_handle_maybe_ = opentracing::DynamicallyLoadTracingLibrary(tracer_lib_str.c_str(), error_message);
-    if (!tracer_handle_maybe_) 
-    {
-      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to load tracer library: " + error_message);
-    }
-
-    // Read in the tracer's configuration.
+    /*
+     * Read in the tracer's configuration.
+     */ 
     std::ifstream istream{tracer_config_path.c_str()};
     if (!istream.good()) 
     {
@@ -195,7 +182,37 @@ private:
     , std::istreambuf_iterator<char>{}};
     tracer_config += tracer_config_other;
 
-    // Construct a tracer
+    /*
+     * Load the tracer library
+     */ 
+    std::string tracer_lib_str;
+    if (tracer_lib_path.empty())
+    {
+      try
+      {
+        YAML::Node tracer_config_yaml = YAML::LoadFile(tracer_config_path);
+        tracer_lib_str = tracer_config_yaml["library_path"].as<std::string>();
+      }
+      catch(...)
+      {
+        throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to parse tracer lib path from config: " + tracer_config_path);
+      }
+    }
+    else
+    {
+      tracer_lib_str = tracer_lib_path;
+    }
+
+    std::string error_message;
+    tracer_handle_maybe_ = opentracing::DynamicallyLoadTracingLibrary(tracer_lib_str.c_str(), error_message);
+    if (!tracer_handle_maybe_) 
+    {
+      throw CREATE_ERROR(error::Code::RMP_FAIL, "Failed to load tracer library: " + error_message);
+    }
+
+    /*
+     * Construct a tracer
+     */ 
     tracer_ = tracer_handle_maybe_->tracer_factory().MakeTracer(tracer_config.c_str(), error_message);
 
     if (!tracer_) 
@@ -211,10 +228,9 @@ private:
     {
       // TODO: The lib path should be embedded in tracer config
       std::string base_path = ros::package::getPath("temoto_core");
-      std::string tracer_lib_path = base_path + "/config/tracer_lib_path";
       std::string tracer_config_path = base_path + "/config/tracer_config.yaml";
-      std::string tracer_name = subsystem_name_;
-      initializeTracer(tracer_lib_path, tracer_config_path, tracer_name);
+      std::string tracer_name = temoto_core::common::getTemotoNamespace() + "/" + subsystem_name_;
+      initializeTracer(tracer_config_path, tracer_name);
     }
     catch (error::ErrorStack& error_stack)
     {

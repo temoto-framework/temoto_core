@@ -159,12 +159,26 @@ public:
     using ClientPtr = std::shared_ptr<ClientType>;
     using BaseClientPtr = BaseResourceClientPtr<Owner>;
 
-    #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
-    #endif
-
     ClientPtr client_ptr = NULL;
     waitForLock(clients_mutex_);
+
+    #ifdef enable_tracing
+    /*
+     * Create a tracing span and see if this query is part of an active service routine
+     */ 
+    std::unique_ptr<opentracing::Span> tracing_span;
+    if (active_server_)
+    {
+      temoto_core::StringMap active_server_span_context = active_server_->getTracerSpanContext();
+      TextMapCarrier carrier(active_server_span_context);
+      auto span_context_maybe = TRACER->Extract(carrier);
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    }
+    else
+    {
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    }
+    #endif
 
     // check if this client already exists
     std::string client_name = '/'+temoto_namespace + "/" + resource_registrar_name + "/" + server_name;
@@ -200,7 +214,6 @@ public:
     try
     {
       #ifdef enable_tracing
-      
       /*
        * Propagate the context of the span to the invoked subroutines
        * TODO: this segment of code will crash if the tracer is uninitialized
