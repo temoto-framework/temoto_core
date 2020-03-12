@@ -58,7 +58,7 @@ set(headers
   ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/include
 )
 set(libraries
-  ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so
+  ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so.0.6.2
 )
 set(src_files)
 
