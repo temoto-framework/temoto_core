@@ -55,10 +55,10 @@ ExternalProject_Add(yaml-cpp-062
 set(headers
   include
   ${catkin_INCLUDE_DIRS}
-  "${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/include"
+  ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/include
 )
 set(libraries
-  "${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so"
+  ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so
 )
 set(src_files)
 
@@ -80,14 +80,14 @@ if(TEMOTO_ENABLE_TRACING)
   )
 
   list(APPEND headers
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/example/tutorial"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/3rd_party/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/include"
+    ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/example/tutorial
+    ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/3rd_party/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/include
   )
   list(APPEND libraries
-    "${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/output/libopentracing.so"
-    "-pthread"
+    ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/output/libopentracing.so
+    -pthread
   )
   list(APPEND src_files
     src/common/tracer_conversions.cpp
