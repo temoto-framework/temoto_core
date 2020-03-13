@@ -52,6 +52,13 @@ ExternalProject_Add(yaml-cpp-062
   INSTALL_COMMAND cmake -E echo "Skipping install step."
 )
 
+add_custom_command(
+  TARGET yaml-cpp-062 POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy
+    ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so
+    ${CATKIN_DEVEL_PREFIX}/lib/libyaml-cpp.so
+)
+
 set(headers
   include
   ${catkin_INCLUDE_DIRS}
@@ -79,6 +86,12 @@ if(TEMOTO_ENABLE_TRACING)
     INSTALL_COMMAND cmake -E echo "Skipping install step."
   )
 
+  add_custom_command(
+    TARGET open-tracing-150 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+      ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/output/libopentracing.so
+      ${CATKIN_DEVEL_PREFIX}/lib/libopentracing.so
+  )
   list(APPEND headers
     ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/include
     ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/example/tutorial
@@ -131,4 +144,5 @@ install(TARGETS temoto_core_components
 )
 
 install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
