@@ -10,6 +10,7 @@ find_package(catkin REQUIRED
   std_msgs
   diagnostic_msgs
   message_generation
+  yaml-cpp
 )
 
 add_message_files(FILES 
@@ -38,35 +39,11 @@ generate_messages(
   diagnostic_msgs
 )
 
-# Build yaml-cpp version 0.6.2
-include(ExternalProject)
-
-ExternalProject_Add(yaml-cpp-062
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp
-  BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build
-  CMAKE_ARGS
-    -DBUILD_SHARED_LIBS=ON
-    -DYAML_CPP_BUILD_TESTS=OFF
-    -Wno-dev
-  BUILD_COMMAND $(MAKE) -j
-  INSTALL_COMMAND cmake -E echo "Skipping install step."
-)
-
-add_custom_command(
-  TARGET yaml-cpp-062 POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy
-    ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so
-    ${CATKIN_DEVEL_PREFIX}/lib/libyaml-cpp.so
-)
-
 set(headers
   include
   ${catkin_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/include
 )
-set(libraries
-  ${CMAKE_CURRENT_SOURCE_DIR}/yaml-cpp/build/libyaml-cpp.so.0.6.2
-)
+set(libraries)
 set(src_files)
 
 set(tracing_dependencies)
@@ -86,12 +63,6 @@ if(TEMOTO_ENABLE_TRACING)
     INSTALL_COMMAND cmake -E echo "Skipping install step."
   )
 
-  add_custom_command(
-    TARGET open-tracing-150 POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-      ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/output/libopentracing.so
-      ${CATKIN_DEVEL_PREFIX}/lib/libopentracing.so
-  )
   list(APPEND headers
     ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/include
     ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/example/tutorial
@@ -131,11 +102,11 @@ add_dependencies(temoto_core_components
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${tracing_dependencies}
-  yaml-cpp-062
 )
 target_link_libraries(temoto_core_components 
   ${catkin_LIBRARIES}
   ${libraries}
+  libyaml-cpp.so
 )
 
 install(TARGETS temoto_core_components

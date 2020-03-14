@@ -28,7 +28,7 @@
   #include "temoto_core/common/tracer_conversions.h"
   #include <fstream>
   #include "ros/package.h"
-  #include <yaml-cpp/yaml.h>
+  #include "yaml-cpp/yaml.h"
   #define TRACER (*(this->tracer_))
 #endif
 
