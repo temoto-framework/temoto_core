@@ -174,6 +174,12 @@ public:
       auto span_context_maybe = TRACER->Extract(carrier);
       tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
     }
+    else if (status_callback_active_)
+    {
+      TextMapCarrier carrier(status_callback_tracer_context_);
+      auto span_context_maybe = TRACER->Extract(carrier);
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    }
     else
     {
       tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
@@ -257,11 +263,7 @@ public:
   bool unloadCallback(temoto_core::UnloadResource::Request& req,
                       temoto_core::UnloadResource::Response& res)
   {
-    #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
-    #endif
-
-    TEMOTO_TRACED_DEBUG("Unload request to server: '%s', ext id: %ld.", req.server_name.c_str(), req.resource_id);
+    TEMOTO_DEBUG("Unload request to server: '%s', ext id: %ld.", req.server_name.c_str(), req.resource_id);
     // Find server with requested name
     waitForLock(servers_mutex_);
     for (auto& server : servers_)
@@ -269,7 +271,7 @@ public:
       if (server->getName() == req.server_name)
       {
         server->unloadResource(req, res);
-        TEMOTO_TRACED_DEBUG("Resource %ld unloaded.", req.resource_id);
+        TEMOTO_DEBUG("Resource %ld unloaded.", req.resource_id);
         break;
       }
     }
@@ -295,6 +297,21 @@ public:
   void unloadClientResource(temoto_id::ID resource_id)
   {
     waitForLock(clients_mutex_);
+
+    #ifdef enable_tracing
+    std::unique_ptr<opentracing::Span> tracing_span;
+    if (status_callback_active_)
+    {
+      TextMapCarrier carrier(status_callback_tracer_context_);
+      auto span_context_maybe = TRACER->Extract(carrier);
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    }
+    else
+    {
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    }
+    #endif
+
     TEMOTO_DEBUG("Unloading resource with id:'%d'.", resource_id);
     // Go through clients and search for given client by name
     auto client_it =
@@ -328,7 +345,21 @@ public:
   void sendStatus(temoto_core::ResourceStatus& srv)
   {
     #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    /*
+     * Create a tracing span and see if status message is intermediate or initial
+     */ 
+    std::unique_ptr<opentracing::Span> tracing_span;
+    if (srv.request.tracer_context.empty())
+    {
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    }
+    else
+    {
+      temoto_core::StringMap parent_status_span_context = keyValuesToUnorderedMap(srv.request.tracer_context);
+      TextMapCarrier carrier(parent_status_span_context);
+      auto span_context_maybe = TRACER->Extract(carrier);
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    }
     #endif
 
     TEMOTO_TRACED_DEBUG("Sending status to internal resource: %ld.", srv.request.resource_id);
@@ -371,6 +402,27 @@ public:
       info.srv.request.temoto_namespace = ::temoto_core::common::getTemotoNamespace();
       info.srv.request.manager_name = name_;
       info.srv.request.server_name = server->getName();
+
+      #ifdef enable_tracing
+      /*
+       * Propagate the context of the span to the invoked subroutines
+       * TODO: this segment of code will crash if the tracer is uninitialized
+       */ 
+      temoto_core::StringMap string_map;
+      TextMapCarrier carrier(string_map);
+      auto err = TRACER->Inject(tracing_span->context(), carrier);
+      
+      if(!err)
+      {
+        TEMOTO_WARN_STREAM("Failed to get the context of a tracing span");
+      }
+      else
+      {
+        // Convert it to a key value pair vector and send it to a child tracer
+        info.srv.request.tracer_context = temoto_core::unorderedMapToKeyValues(string_map);
+      }
+      #endif
+
       for (const auto& ext_resource : ext_resources)
       {
         TEMOTO_TRACED_WARN(" %d, %s ",ext_resource.first,ext_resource.second.c_str());
@@ -455,37 +507,55 @@ public:
   bool statusCallback(temoto_core::ResourceStatus::Request& req,
                       temoto_core::ResourceStatus::Response& res)
   {
+    status_callback_active_ = true;
     #ifdef enable_tracing
-    auto tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__);
+    /*
+     * Create a span based on parent span and also extract the context of the created span
+     */ 
+    temoto_core::StringMap parent_status_span_context = keyValuesToUnorderedMap(req.tracer_context);
+    TextMapCarrier carrier(parent_status_span_context);
+    auto span_context_maybe = TRACER->Extract(carrier);
+    std::unique_ptr<opentracing::Span> tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+
+    /*
+     * Propagate the context of the span to the invoked subroutines
+     * TODO: this segment of code will crash if the tracer is uninitialized
+     */ 
+    temoto_core::StringMap current_span_context_sm;
+    TextMapCarrier current_context_carrier(current_span_context_sm);
+    auto err = TRACER->Inject(tracing_span->context(), current_context_carrier);
+    KeyValues current_span_context_kv;
+    
+    if(!err)
+    {
+      TEMOTO_WARN_STREAM("Failed to get the context of a tracing span");
+    }
+    else
+    {
+      // Convert it to a key value pair vector and send it to a child tracer
+      current_span_context_kv = unorderedMapToKeyValues(current_span_context_sm);
+      status_callback_tracer_context_ = current_span_context_sm;
+    }
     #endif
 
     TEMOTO_TRACED_DEBUG("Got status request: "); 
     TEMOTO_DEBUG_STREAM(req);
     std::string client_name = "/" + req.temoto_namespace + "/" + req.manager_name + "/" + req.server_name;
-    /* 
-       if status == FAILED
-
-       * identify the query
-         -mark it as Failed
-       *which internal clients used this query getInternalClients
-          -send status to each of those. 
-       *if this was last internal resource, remove the query and call owners status callback?
+    /*
+     * 
+     * if status == FAILED
+     *  
+     * * identify the query
+     *   -mark it as Failed
+     * * which internal clients used this query getInternalClients
+     *    -send status to each of those. 
+     * * if this was last internal resource, remove the query and call owners status callback?
      */
-
 
     // based on incoming external id, find the assigned internal client side ids
     // for each internal client side id find the external ids and do forwarding
-
     if (req.status_code == status_codes::FAILED)
     {
-      // Debug clients
-//       TEMOTO_TRACED_DEBUG("STATUS START DEBUGGING CLIENTS");
-//       for (auto& client : clients_)
-//       {
-//         TEMOTO_TRACED_DEBUG("Client:\n%s",client->toString().c_str());
-//       }
-//       TEMOTO_TRACED_DEBUG("STATUS END DEBUGGING CLIENTS");
-
       // Go through clients and locate the one from
       // which the request arrived
       TEMOTO_TRACED_DEBUG("Got info that resource has failed, looking for client: '%s', external_resource_id: %ld", client_name.c_str(), req.resource_id);
@@ -502,6 +572,10 @@ public:
         temoto_core::ResourceStatus srv;
         srv.request = req;
         srv.response = res;
+        #ifdef enable_tracing
+        srv.request.tracer_context = current_span_context_kv;
+        #endif
+
         for (const auto& int_resource : int_resources)
         {
           // for each internal resource, execute owner's callback
@@ -568,6 +642,10 @@ public:
       temoto_core::ResourceStatus srv;
       srv.request = req;
       srv.response = res;
+      #ifdef enable_tracing
+      srv.request.tracer_context = current_span_context_kv;
+      #endif
+
       for (const auto& int_resource : int_resources)
       {
         // for each internal resource, execute owner's callback
@@ -614,6 +692,7 @@ public:
       }
     }
 
+    status_callback_active_ = false;
     return true;
   }
 
@@ -695,6 +774,11 @@ private:
   temoto_id::IDManager id_manager_;
   std::shared_ptr<BaseResourceServer<Owner>> active_server_;
   void (Owner::*status_callback_)(temoto_core::ResourceStatus&);
+  bool status_callback_active_ = false;
+
+  #ifdef enable_tracing
+  temoto_core::StringMap status_callback_tracer_context_;
+  #endif
 
   ros::AsyncSpinner status_spinner_;
   ros::AsyncSpinner unload_spinner_;
@@ -704,7 +788,7 @@ private:
   ros::ServiceServer unload_server_;
   ros::ServiceServer status_server_;
 
-  // thread safe locks;
+  // thread safety locks;
   std::mutex id_manager_mutex_;
   std::mutex servers_mutex_;
   std::mutex clients_mutex_;

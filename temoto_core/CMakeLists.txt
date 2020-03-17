@@ -84,7 +84,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS ${headers}
   LIBRARIES temoto_core_components ${libraries}
-  CATKIN_DEPENDS roscpp std_msgs diagnostic_msgs message_generation
+  CATKIN_DEPENDS roscpp std_msgs diagnostic_msgs message_generation yaml-cpp
   # DEPENDS
 )
 
