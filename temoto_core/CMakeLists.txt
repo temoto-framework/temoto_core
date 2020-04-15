@@ -71,7 +71,7 @@ if(TEMOTO_ENABLE_TRACING)
   )
   list(APPEND libraries
     ${CMAKE_CURRENT_SOURCE_DIR}/tracing/opentracing-cpp/build/output/libopentracing.so
-    -pthread
+    pthread
   )
   list(APPEND src_files
     src/common/tracer_conversions.cpp
