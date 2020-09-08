@@ -150,10 +150,25 @@ public:
     return name_;
   }
 
+  bool statusCallbackActive() const
+  {
+    return status_callback_active_;
+  }
+
+  #ifdef enable_tracing
+  const temoto_core::StringMap& getStatusCallbackSpanContext() const
+  {
+    return status_callback_tracer_context_;
+  }
+  #endif
+
   template <class ServiceType>
-  void call(std::string resource_registrar_name, std::string server_name, ServiceType& msg,
-            trr::FailureBehavior failure_behavior = trr::FailureBehavior::NONE,
-            std::string temoto_namespace = ::temoto_core::common::getTemotoNamespace())
+  void call(std::string resource_registrar_name
+  , std::string server_name
+  , ServiceType& msg
+  , trr::FailureBehavior failure_behavior = trr::FailureBehavior::NONE
+  , std::string temoto_namespace = ::temoto_core::common::getTemotoNamespace()
+  , temoto_core::StringMap parent_span_context = temoto_core::StringMap {})
   {
     using ClientType = ResourceClient<ServiceType, Owner>;
     using ClientPtr = std::shared_ptr<ClientType>;
@@ -167,14 +182,21 @@ public:
      * Create a tracing span and see if this query is part of an active service routine
      */ 
     std::unique_ptr<opentracing::Span> tracing_span;
-    if (active_server_)
+
+    if(!parent_span_context.empty())
+    {
+      TextMapCarrier carrier(parent_span_context);
+      auto span_context_maybe = TRACER->Extract(carrier);
+      tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
+    }
+    else if (active_server_)
     {
       temoto_core::StringMap active_server_span_context = active_server_->getTracerSpanContext();
       TextMapCarrier carrier(active_server_span_context);
       auto span_context_maybe = TRACER->Extract(carrier);
       tracing_span = TRACER->StartSpan(this->class_name_ + "::" + __func__, {opentracing::ChildOf(span_context_maybe->get())});
     }
-    else if (status_callback_active_)
+    else if (statusCallbackActive())
     {
       TextMapCarrier carrier(status_callback_tracer_context_);
       auto span_context_maybe = TRACER->Extract(carrier);

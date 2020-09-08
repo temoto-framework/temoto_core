@@ -20,12 +20,12 @@
 #define TEMOTO_CORE__BASE_SUBSYSTEM_H
 
 #include "temoto_core/temoto_error/temoto_error.h"
+#include "temoto_core/common/tracer_conversions.h"
 #include <string>
 
 #ifdef enable_tracing
   #include <opentracing/dynamic_load.h>
   #include <text_map_carrier.h>
-  #include "temoto_core/common/tracer_conversions.h"
   #include <fstream>
   #include "ros/package.h"
   #include "yaml-cpp/yaml.h"
