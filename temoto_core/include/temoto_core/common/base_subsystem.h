@@ -131,11 +131,11 @@ protected:
    * during the construction phase
    * @param b
    */
-  void initializeBase(const BaseSubsystem* b)
+  void initializeBase(const BaseSubsystem& b)
   {
-    subsystem_name_ = b->subsystem_name_;
-    subsystem_code_ = b->subsystem_code_;
-    log_group_ = b->log_group_;
+    subsystem_name_ = b.subsystem_name_;
+    subsystem_code_ = b.subsystem_code_;
+    log_group_ = b.log_group_;
     error_handler_ = error::ErrorHandler(subsystem_code_, log_group_);
 
     #ifdef enable_tracing
