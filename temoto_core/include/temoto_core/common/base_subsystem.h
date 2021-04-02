@@ -59,10 +59,10 @@ public:
    * @param b 
    * @return BaseSubsystem& 
    */
-  BaseSubsystem& operator = (const BaseSubsystem& b)
-  {
-    BaseSubsystem(b, b.class_name_);
-  }
+  // BaseSubsystem& operator = (const BaseSubsystem& b)
+  // {
+  //   BaseSubsystem(b, b.class_name_);
+  // }
 
   /**
    * @brief Copy constructor with class name
