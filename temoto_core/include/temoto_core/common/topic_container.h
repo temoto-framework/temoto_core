@@ -82,13 +82,13 @@ public:
   }
 
   // Set input topics by key/value vector
-  void setInputTopicsByKeyValue(std::vector<diagnostic_msgs::KeyValue>& v_kv)
+  void setInputTopicsByKeyValue(const std::vector<diagnostic_msgs::KeyValue>& v_kv)
   {
     setTopicsByKeyValue(v_kv, input_topics_);
   }
 
   // Set output topics by key/value vector
-  void setOutputTopicsByKeyValue(std::vector<diagnostic_msgs::KeyValue>& v_kv)
+  void setOutputTopicsByKeyValue(const std::vector<diagnostic_msgs::KeyValue>& v_kv)
   {
     setTopicsByKeyValue(v_kv, output_topics_);
   }
@@ -141,12 +141,12 @@ private:
   }
 
   // Set the stringpair type topic vector by key/value vector
-  void setTopicsByKeyValue(std::vector<diagnostic_msgs::KeyValue>& v_kv, std::vector<StringPair>& v_sp)
+  void setTopicsByKeyValue(const std::vector<diagnostic_msgs::KeyValue>& v_kv, std::vector<StringPair>& v_sp)
   {
     // Clear the vector before adding new elements
     v_sp.clear();
 
-    for (auto& kv : v_kv)
+    for (const auto& kv : v_kv)
     {
       v_sp.push_back(StringPair{kv.key, kv.value});
     }
