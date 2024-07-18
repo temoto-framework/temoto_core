@@ -1,13 +1,16 @@
 #ifndef TEMOTO_CORE__TEMOTO_ERROR_H
 #define TEMOTO_CORE__TEMOTO_ERROR_H
 
-#include "temoto_core/Error.h"
-#include "temoto_core/ErrorStack.h"
+#include "temoto_core/msg/error.hpp"
+#include "temoto_core/msg/error_stack.hpp"
 #include "temoto_core/common/temoto_log_macros.h"
 #include "temoto_core/common/console_colors.h"
 #include <string>
 #include <vector>
-#include "ros/ros.h"
+#include "rclcpp/rclcpp.hpp"
+#include <boost/shared_array.hpp>
+#include "rclcpp/logging.hpp"
+
 
 namespace temoto_core
 {
@@ -130,7 +133,7 @@ static const std::map<Code, std::string> descriptions = {
 /**
  * @brief ErrorStack
  */
-typedef std::vector<temoto_core::Error> ErrorStack;
+typedef std::vector<temoto_core::msg::Error> ErrorStack;
 
 #define __TEMOTO_ERROR_HANDLER_VERBOSE__ TRUE
 
@@ -173,17 +176,21 @@ public:
    */
   void send(ErrorStack error_stack);
 
-
   static std::string formatToString(const char* fmt, ...)
   {
-    boost::shared_array<char> buffer;
-    size_t size = 0;
     va_list args;
     va_start(args, fmt);
-    ros::console::vformatToBuffer(buffer, size, fmt, args);
+    va_list args_copy;
+    va_copy(args_copy, args);
+    int size_needed = std::vsnprintf(nullptr, 0, fmt, args_copy) + 1;  // +1 for null terminator
+    va_end(args_copy);
+    std::shared_ptr<char[]> buffer(new char[size_needed]);
+    std::vsnprintf(buffer.get(), size_needed, fmt, args);
     va_end(args);
-    return std::string(buffer.get(), size);
+
+    return std::string(buffer.get());
   }
+
 
   static std::string formatToString(const std::string& s) 
   {
@@ -196,7 +203,8 @@ private:
 
   std::string log_group_;
 
-  ros::NodeHandle n_;
+  //ros::NodeHandle n_;
+  std::shared_ptr<rclcpp::Node> node_;
 };
 
 } // end of error namespace
@@ -214,7 +222,7 @@ temoto_core::error::ErrorStack& operator+=(temoto_core::error::ErrorStack& er_lh
  * @param t
  * @return
  */
-std::ostream& operator<<(std::ostream& out, const temoto_core::Error& t);
+std::ostream& operator<<(std::ostream& out, const temoto_core::msg::Error& t);
 
 /**
  * @brief operator <<

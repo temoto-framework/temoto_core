@@ -20,12 +20,12 @@ ErrorStack ErrorHandler::create(Code code, const std::string& prefix, const std:
 {
   ErrorStack est;
 
-  temoto_core::Error error;
+  temoto_core::msg::Error error;
   error.subsystem = static_cast<int>(subsystem_);
   error.code = static_cast<int>(code);
   error.prefix = prefix;
   error.message = message;
-  error.stamp = ros::Time::now();
+  error.stamp = rclcpp::Clock().now();
 
 // Print the message out if the verbose mode is enabled
 #ifdef __TEMOTO_ERROR_HANDLER_VERBOSE__
@@ -40,11 +40,11 @@ ErrorStack ErrorHandler::create(Code code, const std::string& prefix, const std:
 
 ErrorStack ErrorHandler::forward(ErrorStack error_stack, const std::string& prefix) const
 {
-  temoto_core::Error error;
+  temoto_core::msg::Error error;
   error.subsystem = static_cast<int>(subsystem_);
   error.code = static_cast<int>(Code::FORWARDING);
   error.prefix = prefix;
-  error.stamp = ros::Time::now();
+  error.stamp = rclcpp::Clock().now();
 
 // Print the message out if the verbose mode is enabled
 #ifdef __TEMOTO_ERROR_HANDLER_VERBOSE__
@@ -59,13 +59,14 @@ ErrorStack ErrorHandler::forward(ErrorStack error_stack, const std::string& pref
 void ErrorHandler::send(ErrorStack est) 
 {
   // Create an ErrorStack message and publish it
-  ros::Publisher error_publisher_ =
-      n_.advertise<temoto_core::ErrorStack>("/temoto_core/temoto_error_messages", 100);
+  rclcpp::Publisher<temoto_core::msg::ErrorStack>::SharedPtr error_publisher_;
+  error_publisher_ = node_->create_publisher<temoto_core::msg::ErrorStack>("/temoto_core/temoto_error_messages", 100);
 
-  while(error_publisher_.getNumSubscribers() < 1){}
-  temoto_core::ErrorStack error_stack_msg;
+
+  // while(error_publisher_.getNumSubscribers() < 1){}
+  temoto_core::msg::ErrorStack error_stack_msg;
   error_stack_msg.error_stack = est;
-  error_publisher_.publish(error_stack_msg);
+  error_publisher_->publish(error_stack_msg);
 }
 
 
@@ -79,14 +80,14 @@ temoto_core::error::ErrorStack& operator+=(temoto_core::error::ErrorStack& es_lh
 }
 
 
-std::ostream& operator<<(std::ostream& out, const temoto_core::Error& t)
+std::ostream& operator<<(std::ostream& out, const temoto_core::msg::Error& t)
 {
   out << std::endl;
   out << "* code: " << t.code << std::endl;
   out << "* subsystem: " << t.subsystem << std::endl;
   out << "* prefix: " << t.prefix << std::endl;
   out << RED << "* message: " << t.message << RESET << std::endl;
-  out << "* timestamp: " << t.stamp << std::endl;
+  out << "* timestamp: " << t.stamp.sec << std::endl;
   return out;
 }
 

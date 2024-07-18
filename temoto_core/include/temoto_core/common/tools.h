@@ -1,7 +1,7 @@
 #ifndef TEMOTO_CORE__TOOLS_H
 #define TEMOTO_CORE__TOOLS_H
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 #include <string>
 #include <stdlib.h>  // for getenv
 #include <boost/algorithm/string.hpp> // boost replace_all and such
@@ -51,12 +51,20 @@ inline const std::string getTemotoNamespace()
   //    temoto_name_str = "temoto_core_default";
   //  }
 
-  std::string temoto_ns = ::ros::this_node::getNamespace();
-  temoto_ns = ::ros::names::clean(temoto_ns);  // clean up double and trailing slashes
+  // TODO Fix this:
+  // std::string temoto_ns = ::ros::this_node::getNamespace();
+  // temoto_ns = ::ros::names::clean(temoto_ns);  // clean up double and trailing slashes
+  std::string temoto_ns = "get/node/namespace";
   if (temoto_ns.size() > 0 and temoto_ns[0] == '/')
   {
     temoto_ns.erase(temoto_ns.begin());  // remove the leading '/'
   }
+
+  // rclcpp::Node::make_shared("node_name")->get_name();
+
+  // std::string temoto_ns = this->get_namespace();
+  // temoto_ns = rclcpp::expand_topic_or_service_name(temoto_ns, node->get_name(), node->get_namespace());
+
 
   return temoto_ns;
 }

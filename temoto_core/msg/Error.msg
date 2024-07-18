@@ -8,4 +8,4 @@ string prefix
 
 string message
 
-time stamp
+builtin_interfaces/Time stamp
